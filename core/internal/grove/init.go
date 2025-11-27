@@ -10,70 +10,73 @@ import (
 )
 
 // Init initializes GitGroove on the current Git repository.
+//
+// Requirements:
+// - Must be inside an already initialized Git repo
+// - Repo must be 100% clean (no staged/unstaged/untracked)
+// - .gg must not already exist
 func Init(absolutePath string) error {
 	log.Debug().Msg("Attempting to initialize GitGroove in path " + absolutePath)
 
-	// Normalize path
+	// Normalize
 	absolutePath = fileUtil.NormalizePath(absolutePath)
 	ggPath := filepath.Join(absolutePath, ".gg")
 
-	// 1. Ensure .gg does NOT exist
+	// MUST be an existing git repo
+	if !git.IsInsideGitRepo(absolutePath) {
+		return fmt.Errorf("GitGroove cannot initialize: not a valid Git repository")
+	}
+
+	// MUST be clean
+	if err := git.VerifyCleanState(absolutePath); err != nil {
+		return fmt.Errorf("GitGroove cannot initialize: %w", err)
+	}
+
+	// .gg must NOT exist
 	if err := fileUtil.EnsureNotExists(ggPath); err != nil {
 		return fmt.Errorf("GitGroove already initialized: %w", err)
 	}
 
-	// 2. Ensure repo exists OR init one
-	if git.IsInsideGitRepo(absolutePath) {
-		exists, err := git.HasBranch(absolutePath, "gitgroove/system")
-		if err != nil {
-			return fmt.Errorf("failed checking existing system branch: %w", err)
-		}
-		if exists {
-			return fmt.Errorf("'gitgroove/system' already exists — GitGroove may already be initialized")
-		}
-	} else {
-		if err := git.GitInit(absolutePath); err != nil {
-			return fmt.Errorf("failed to run git init: %w", err)
-		}
-		log.Info().Msg("Initialized empty git repository")
+	// Ensure system branch does NOT already exist
+	exists, err := git.HasBranch(absolutePath, "gitgroove/system")
+	if err != nil {
+		return fmt.Errorf("failed checking system branch: %w", err)
 	}
-
-	// 3. Repo MUST be clean
-	if err := git.VerifyCleanState(absolutePath); err != nil {
-		return fmt.Errorf("git repository not clean: %w", err)
+	if exists {
+		return fmt.Errorf("gitgroove/system branch already exists — GitGroove may already be initialized")
 	}
 
 	fmt.Println("Initializing GitGroove in", absolutePath)
 
-	// 4. Create .gg directory
+	// Create .gg
 	if err := fileUtil.CreateDir(ggPath); err != nil {
-		return fmt.Errorf("failed creating .gg: %w", err)
+		return fmt.Errorf("failed to create .gg: %w", err)
 	}
 	log.Info().Msg("Created .gg workspace directory")
 
-	// 5. Create grove.json (empty)
+	// Create grove.json
 	groveFile := filepath.Join(ggPath, "grove.json")
 	if err := fileUtil.WriteJSONFile(groveFile, map[string]any{}); err != nil {
 		return fmt.Errorf("failed to create grove.json: %w", err)
 	}
 	log.Info().Msg("Created grove.json")
 
-	// 6. Create / checkout system branch
+	// Create and checkout system branch
 	if err := git.CreateAndCheckoutBranch(absolutePath, "gitgroove/system"); err != nil {
-		return fmt.Errorf("failed creating gitgrove/system: %w", err)
+		return fmt.Errorf("failed creating system branch: %w", err)
 	}
-	log.Info().Msg("Checked out gitgrove/system")
 
-	// 7. Stage .gg
+	// Stage .gg
 	if err := git.StagePath(absolutePath, ".gg"); err != nil {
-		return fmt.Errorf("failed staging .gg directory: %w", err)
+		return fmt.Errorf("failed staging .gg: %w", err)
 	}
 
-	// 8. Commit
+	// Commit
 	if err := git.Commit(absolutePath, "Initialize GitGroove system branch"); err != nil {
-		return fmt.Errorf("failed committing GitGroove metadata: %w", err)
+		return fmt.Errorf("failed committing metadata: %w", err)
 	}
-	log.Info().Msg("Committed .gg metadata")
+
+	log.Info().Msg("GitGroove initialized successfully")
 
 	return nil
 }
