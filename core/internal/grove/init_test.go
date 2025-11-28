@@ -82,9 +82,14 @@ func TestInitOnCleanRepo(t *testing.T) {
 		t.Fatalf(".gg directory missing after init")
 	}
 
-	// Verify grove.json exists
-	if !fileUtil.Exists(filepath.Join(temp, ".gg/grove.json")) {
-		t.Fatalf("grove.json missing after init")
+	// Verify .gg/repos exists
+	if !fileUtil.Exists(filepath.Join(temp, ".gg/repos")) {
+		t.Fatalf(".gg/repos directory missing after init")
+	}
+
+	// Verify .gitkeep exists
+	if !fileUtil.Exists(filepath.Join(temp, ".gg/repos/.gitkeep")) {
+		t.Fatalf(".gg/repos/.gitkeep missing after init")
 	}
 
 	// Verify system branch exists

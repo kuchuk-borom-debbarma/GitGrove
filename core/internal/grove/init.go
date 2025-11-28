@@ -11,10 +11,52 @@ import (
 
 // Init initializes GitGroove on the current Git repository.
 //
-// Requirements:
-// - Must be inside an already initialized Git repo
-// - Repo must be 100% clean (no staged/unstaged/untracked)
-// - .gg must not already exist
+// High-level behavior:
+//
+//	Init bootstraps the GitGroove metadata structure within an existing Git repository.
+//	It creates the hidden .gg directory, initializes the .gg/repos structure, and establishes
+//	the detached gitgroove/system branch to track metadata history.
+//
+// Requirements / invariants:
+//   - absolutePath must point to a valid, existing Git repository.
+//   - The repository working tree must be 100% clean (no staged, unstaged, or untracked changes)
+//     to ensure safe branch creation and switching.
+//   - The .gg directory must not already exist (idempotency check).
+//   - The gitgroove/system branch must not already exist.
+//
+// Step-by-step algorithm:
+//
+//  1. Validate environment:
+//     • Normalize the path.
+//     • Verify it is a Git repository.
+//     • Verify the working tree is clean.
+//     • Verify .gg does not exist.
+//     • Verify gitgroove/system branch does not exist.
+//     If any check fails → abort immediately.
+//
+//  2. Create metadata directory structure:
+//     • Create .gg directory.
+//     • Create .gg/repos directory.
+//     • Create .gg/repos/.gitkeep to ensure git tracks the directory even if empty.
+//
+//  3. Initialize system branch:
+//     • Create and checkout a new orphan-like branch 'gitgroove/system'.
+//     (Note: In this implementation, it branches off the current HEAD, effectively making
+//     history shared until this point, or it might be intended as an orphan.
+//     The current implementation uses `checkout -b`, which branches from current HEAD.)
+//
+//  4. Commit initial state:
+//     • Stage the .gg directory.
+//     • Commit with message "Initialize GitGroove system branch".
+//
+//  5. Result:
+//     • The user is left on the gitgroove/system branch (based on current implementation).
+//     • .gg exists and is tracked.
+//
+// Atomicity:
+//   - This operation is not fully atomic in the ACID sense (filesystem changes happen before git ops).
+//   - However, checks are performed upfront to minimize failure risk.
+//   - If it fails midway, the user might be left with a partial .gg directory or a new branch.
 func Init(absolutePath string) error {
 	log.Debug().Msg("Attempting to initialize GitGroove in path " + absolutePath)
 
@@ -22,6 +64,26 @@ func Init(absolutePath string) error {
 	absolutePath = fileUtil.NormalizePath(absolutePath)
 	ggPath := filepath.Join(absolutePath, ".gg")
 
+	if err := validateInitEnvironment(absolutePath, ggPath); err != nil {
+		return err
+	}
+
+	fmt.Println("Initializing GitGroove in", absolutePath)
+
+	if err := createMetadataDirectories(ggPath); err != nil {
+		return err
+	}
+
+	if err := initializeSystemBranch(absolutePath); err != nil {
+		return err
+	}
+
+	log.Info().Msg("GitGroove initialized successfully")
+
+	return nil
+}
+
+func validateInitEnvironment(absolutePath, ggPath string) error {
 	// MUST be an existing git repo
 	if !git.IsInsideGitRepo(absolutePath) {
 		return fmt.Errorf("GitGroove cannot initialize: not a valid Git repository")
@@ -45,22 +107,32 @@ func Init(absolutePath string) error {
 	if exists {
 		return fmt.Errorf("gitgroove/system branch already exists — GitGroove may already be initialized")
 	}
+	return nil
+}
 
-	fmt.Println("Initializing GitGroove in", absolutePath)
-
+func createMetadataDirectories(ggPath string) error {
 	// Create .gg
 	if err := fileUtil.CreateDir(ggPath); err != nil {
 		return fmt.Errorf("failed to create .gg: %w", err)
 	}
 	log.Info().Msg("Created .gg workspace directory")
 
-	// Create grove.json
-	groveFile := filepath.Join(ggPath, "grove.json")
-	if err := fileUtil.WriteJSONFile(groveFile, map[string]any{}); err != nil {
-		return fmt.Errorf("failed to create grove.json: %w", err)
+	// Create .gg/repos
+	reposPath := filepath.Join(ggPath, "repos")
+	if err := fileUtil.CreateDir(reposPath); err != nil {
+		return fmt.Errorf("failed to create .gg/repos: %w", err)
 	}
-	log.Info().Msg("Created grove.json")
+	log.Info().Msg("Created .gg/repos directory")
 
+	// Create .gitkeep to ensure repos dir is tracked
+	gitKeepFile := filepath.Join(reposPath, ".gitkeep")
+	if err := fileUtil.WriteTextFile(gitKeepFile, ""); err != nil {
+		return fmt.Errorf("failed to create .gitkeep: %w", err)
+	}
+	return nil
+}
+
+func initializeSystemBranch(absolutePath string) error {
 	// Create and checkout system branch
 	if err := git.CreateAndCheckoutBranch(absolutePath, "gitgroove/system"); err != nil {
 		return fmt.Errorf("failed creating system branch: %w", err)
@@ -75,8 +147,5 @@ func Init(absolutePath string) error {
 	if err := git.Commit(absolutePath, "Initialize GitGroove system branch"); err != nil {
 		return fmt.Errorf("failed committing metadata: %w", err)
 	}
-
-	log.Info().Msg("GitGroove initialized successfully")
-
 	return nil
 }
