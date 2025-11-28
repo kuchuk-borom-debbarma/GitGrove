@@ -1,7 +1,18 @@
 package grove
 
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/kuchuk-borom-debbarma/GitGrove/core/internal/grove/model"
+	fileUtil "github.com/kuchuk-borom-debbarma/GitGrove/core/internal/util/file"
+	gitUtil "github.com/kuchuk-borom-debbarma/GitGrove/core/internal/util/git"
+	"github.com/rs/zerolog/log"
+)
+
 /*
-Link defines one or more repo hierarchy relationships (parentName → childName) and updates the
+Link defines one or more repo hierarchy relationships (childName → parentName) and updates the
 GitGroove metadata accordingly. After committing the updated hierarchy, Link rebuilds the
 derived repo branches (gitgroove/repos/<repo>/branches/<branch>) based on the state of the
 project and the committed hierarchy.
@@ -60,21 +71,33 @@ deterministic, atomic, conflict-free updates.
   - All metadata is read from oldTip (never from working tree).
 
 3. Load registered repos:
+
   - Enumerate .gg/repos/* from oldTip.
+
   - For each, read:
+
   - path
+
   - parent
+
   - children/*
+
   - Build name→repo metadata map.
 
- 4. Validate relationships:
+    4. Validate relationships:
     For each parentName → childName:
-    • parentName must exist in registered repos.
-    • childName must exist in registered repos.
-    • child must not already have a parent.
-    • parent != child.
-    • The new edges must not introduce a cycle.
-    • The child's path must still exist in the project filesystem (dangling repos forbidden).
+
+  - parentName must exist in registered repos.
+
+  - childName must exist in registered repos.
+
+  - child must not already have a parent.
+
+  - parent != child.
+
+  - The new edges must not introduce a cycle.
+
+  - The child's path must still exist in the project filesystem (dangling repos forbidden).
 
     If ANY relationship fails → abort (no changes applied).
 
@@ -142,6 +165,176 @@ hierarchy and preserves directory structure relative to the project.
 • Cycles are rejected.
 • Repo names are immutable IDs.
 */
-func Link(relationships map[string]string) {
+func Link(rootAbsPath string, relationships map[string]string) error {
+	rootAbsPath = fileUtil.NormalizePath(rootAbsPath)
+	// relationships: child -> parent
+	log.Info().Msgf("Attempting to link %d relationships in %s", len(relationships), rootAbsPath)
 
+	// 1. Validate environment
+	if !gitUtil.IsInsideGitRepo(rootAbsPath) {
+		return fmt.Errorf("not a git repository: %s", rootAbsPath)
+	}
+	if err := gitUtil.VerifyCleanState(rootAbsPath); err != nil {
+		return fmt.Errorf("working tree is not clean: %w", err)
+	}
+
+	// 2. Read latest gitgroove/system commit
+	systemRef := "refs/heads/gitgroove/system"
+	oldTip, err := gitUtil.ResolveRef(rootAbsPath, systemRef)
+	if err != nil {
+		return fmt.Errorf("failed to resolve %s (is GitGroove initialized?): %w", systemRef, err)
+	}
+
+	// 3. Load existing repo metadata
+	existingRepos, err := loadExistingRepos(rootAbsPath, oldTip)
+	if err != nil {
+		return fmt.Errorf("failed to load existing repos: %w", err)
+	}
+
+	// 4. Validate relationships
+	if err := validateRelationships(rootAbsPath, relationships, existingRepos); err != nil {
+		return fmt.Errorf("validation failed: %w", err)
+	}
+
+	// 5. Prepare updated metadata in temporary workspace
+	tempDir, err := os.MkdirTemp("", "gitgroove-link-*")
+	if err != nil {
+		return fmt.Errorf("failed to create temp dir: %w", err)
+	}
+	defer os.RemoveAll(tempDir) // cleanup
+
+	// Create detached worktree at oldTip
+	if err := gitUtil.WorktreeAddDetached(rootAbsPath, tempDir, oldTip); err != nil {
+		return fmt.Errorf("failed to create temporary worktree: %w", err)
+	}
+	defer gitUtil.WorktreeRemove(rootAbsPath, tempDir) // cleanup worktree
+
+	// Apply relationships
+	// For each child -> parent:
+	// 1. Write parent name to .gg/repos/<child>/parent
+	// 2. Create empty file .gg/repos/<parent>/children/<child>
+	for child, parent := range relationships {
+		// Write parent pointer
+		parentFile := filepath.Join(tempDir, ".gg", "repos", child, "parent")
+		if err := os.WriteFile(parentFile, []byte(parent), 0644); err != nil {
+			return fmt.Errorf("failed to write parent for %s: %w", child, err)
+		}
+
+		// Write child pointer in parent's folder
+		childrenDir := filepath.Join(tempDir, ".gg", "repos", parent, "children")
+		if err := os.MkdirAll(childrenDir, 0755); err != nil {
+			return fmt.Errorf("failed to create children dir for %s: %w", parent, err)
+		}
+		childFile := filepath.Join(childrenDir, child)
+		if err := os.WriteFile(childFile, []byte{}, 0644); err != nil {
+			return fmt.Errorf("failed to write child entry %s in %s: %w", child, parent, err)
+		}
+	}
+
+	// 6. Commit updated metadata
+	if err := gitUtil.StagePath(tempDir, ".gg/repos"); err != nil {
+		return fmt.Errorf("failed to stage .gg/repos: %w", err)
+	}
+	if err := gitUtil.Commit(tempDir, fmt.Sprintf("Link %d repositories", len(relationships))); err != nil {
+		return fmt.Errorf("failed to commit metadata changes: %w", err)
+	}
+	newTip, err := gitUtil.GetHeadCommit(tempDir)
+	if err != nil {
+		return fmt.Errorf("failed to get new commit hash: %w", err)
+	}
+
+	// 7. Atomically update gitgroove/system
+	if err := gitUtil.UpdateRef(rootAbsPath, systemRef, newTip, oldTip); err != nil {
+		return fmt.Errorf("failed to update %s (concurrent modification?): %w", systemRef, err)
+	}
+
+	// 8. Rebuild derived branches
+	if err := rebuildBranches(rootAbsPath, newTip); err != nil {
+		// Note: Metadata is already committed. Failure here means branches are out of sync.
+		// We should probably return the error so the user knows.
+		return fmt.Errorf("failed to rebuild branches: %w", err)
+	}
+
+	log.Info().Msg("Successfully linked repositories")
+	return nil
+}
+
+func rebuildBranches(root, tip string) error {
+	// TODO: Implement derived branch reconstruction
+	return nil
+}
+
+func validateRelationships(root string, relationships map[string]string, existingRepos map[string]model.Repo) error {
+	// 1. Check existence and validity
+	for child, parent := range relationships {
+		childRepo, ok := existingRepos[child]
+		if !ok {
+			return fmt.Errorf("child repo '%s' not registered", child)
+		}
+		if _, ok := existingRepos[parent]; !ok {
+			return fmt.Errorf("parent repo '%s' not registered", parent)
+		}
+		if child == parent {
+			return fmt.Errorf("repo '%s' cannot be its own parent", child)
+		}
+		if childRepo.Parent != "" {
+			return fmt.Errorf("repo '%s' already has a parent ('%s')", child, childRepo.Parent)
+		}
+
+		// Check dangling repo (child path must exist)
+		childAbsPath := filepath.Join(root, childRepo.Path)
+		if _, err := os.Stat(childAbsPath); err != nil {
+			return fmt.Errorf("child repo '%s' path '%s' does not exist (dangling repo)", child, childRepo.Path)
+		}
+	}
+
+	// 2. Check for cycles using full graph
+	// Build graph: parent -> []children
+	graph := make(map[string][]string)
+
+	// Add existing edges
+	for name, repo := range existingRepos {
+		if repo.Parent != "" {
+			graph[repo.Parent] = append(graph[repo.Parent], name)
+		}
+	}
+
+	// Add new edges
+	for child, parent := range relationships {
+		graph[parent] = append(graph[parent], child)
+	}
+
+	// Detect cycles
+	visited := make(map[string]bool)
+	recursionStack := make(map[string]bool)
+
+	var checkCycle func(current string) error
+	checkCycle = func(current string) error {
+		visited[current] = true
+		recursionStack[current] = true
+
+		for _, child := range graph[current] {
+			if !visited[child] {
+				if err := checkCycle(child); err != nil {
+					return err
+				}
+			} else if recursionStack[child] {
+				return fmt.Errorf("cycle detected involving '%s' and '%s'", current, child)
+			}
+		}
+
+		recursionStack[current] = false
+		return nil
+	}
+
+	// Check all nodes in the graph
+	for node := range graph {
+		if !visited[node] {
+			if err := checkCycle(node); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }

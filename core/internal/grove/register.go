@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/kuchuk-borom-debbarma/GitGrove/core/internal/grove/model"
@@ -17,7 +18,7 @@ import (
 // High-level behavior:
 //
 //	Register operates strictly against the latest committed state of the gitgroove/system branch.
-//	It validates the requested repo definitions, appends validated entries to .gg/repos.jsonl,
+//	It validates the requested repo definitions, appends validated entries to .gg/repos/<name>/path,
 //	creates a new commit (parent = current gitgroove/system tip), and atomically updates the
 //	gitgroove/system reference to that new commit.
 //
@@ -49,7 +50,9 @@ import (
 //     • Optionally fetch/merge remote state if multi-writer synchronization is desired.
 //
 //  3. Load existing repo metadata from oldTip:
-//     • Stream .gg/repos.jsonl using `git show <oldTip>:.gg/repos.jsonl`.
+//
+//  3. Load existing repo metadata from oldTip:
+//     • Stream .gg/repos/* using `git ls-tree` and `git show`.
 //     • Build minimal sets for existing names and paths.
 //     • Validation is always based on committed state, never working tree.
 //
@@ -64,7 +67,7 @@ import (
 //  5. Prepare updated metadata in a temporary workspace:
 //     • Create a temporary git worktree detached at oldTip
 //     (or build tree programmatically using plumbing).
-//     • Append all new repo entries to .gg/repos.jsonl in this temporary workspace.
+//     • Write new repo entries to .gg/repos/<name>/path in this temporary workspace.
 //
 //  6. Create a new commit for updated metadata:
 //     • Stage updated .gg files in the temporary workspace.
@@ -146,7 +149,15 @@ func Register(rootAbsPath string, repos map[string]string) error {
 		}
 
 		pathFile := filepath.Join(repoDir, "path")
-		if err := os.WriteFile(pathFile, []byte(path), 0644); err != nil {
+		// Canonicalize path before writing
+		cleanPath := fileUtil.NormalizePath(path)
+		if filepath.IsAbs(cleanPath) {
+			// Should have been caught by validation, but ensure we write relative
+			rel, _ := filepath.Rel(rootAbsPath, cleanPath)
+			cleanPath = fileUtil.NormalizePath(rel)
+		}
+
+		if err := os.WriteFile(pathFile, []byte(cleanPath), 0644); err != nil {
 			return fmt.Errorf("failed to write path for repo %s: %w", name, err)
 		}
 	}
@@ -182,8 +193,12 @@ func loadExistingRepos(root, ref string) (map[string]model.Repo, error) {
 
 	entries, err := gitUtil.ListTree(root, ref, ".gg/repos")
 	if err != nil {
-		// Assume error means path not found (empty)
-		// In a robust implementation we'd check the error message or code.
+		// If the directory doesn't exist, it's not an error, just empty.
+		// git ls-tree returns error if path not found.
+		// We need to distinguish "path not found" from other errors if possible.
+		// For now, assuming any error from ListTree on a specific path means it doesn't exist or is empty
+		// is a simplification. A better check would be explicitly checking existence.
+		// But based on gitUtil implementation, let's assume it returns error if not found.
 		return map[string]model.Repo{}, nil
 	}
 
@@ -199,25 +214,41 @@ func loadExistingRepos(root, ref string) (map[string]model.Repo, error) {
 		pathFile := fmt.Sprintf(".gg/repos/%s/path", name)
 		content, err := gitUtil.ShowFile(root, ref, pathFile)
 		if err != nil {
-			// If path file is missing, skip or error?
-			// Should be consistent. Let's log and skip or error.
-			// For now, return error as it implies corruption.
+			// If path file is missing, it's a corruption or partial state.
 			return nil, fmt.Errorf("failed to read path for repo %s: %w", name, err)
 		}
 
 		repoPath := strings.TrimSpace(content)
+
+		// Read .gg/repos/<name>/parent
+		parentFile := fmt.Sprintf(".gg/repos/%s/parent", name)
+		parentContent, err := gitUtil.ShowFile(root, ref, parentFile)
+		parent := ""
+		if err == nil {
+			parent = strings.TrimSpace(parentContent)
+		} else {
+			// Parent file might not exist for root repos or newly registered ones
+			// We treat error as empty parent
+		}
+
 		repos[name] = model.Repo{
-			Name: name,
-			Path: repoPath,
+			Name:   name,
+			Path:   repoPath,
+			Parent: parent,
 		}
 	}
 
 	return repos, nil
 }
 
+var validNameRegex = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
+
 func validateNewRepos(root string, newRepos map[string]string, existing map[string]model.Repo) error {
-	// Check for name collisions
+	// Check for name collisions and validity
 	for name := range newRepos {
+		if !validNameRegex.MatchString(name) {
+			return fmt.Errorf("invalid repo name '%s': must match %s", name, validNameRegex.String())
+		}
 		if _, ok := existing[name]; ok {
 			return fmt.Errorf("repo name '%s' already registered", name)
 		}
@@ -231,12 +262,21 @@ func validateNewRepos(root string, newRepos map[string]string, existing map[stri
 
 	for _, relPath := range newRepos {
 		// Path uniqueness
-		if existingPaths[relPath] {
+		cleanPath := fileUtil.NormalizePath(relPath)
+
+		if existingPaths[cleanPath] {
 			return fmt.Errorf("path '%s' already registered", relPath)
 		}
 
-		// Existence
-		absPath := filepath.Join(root, relPath)
+		// Existence and containment
+		absPath := filepath.Join(root, cleanPath)
+
+		// Verify path is inside root
+		rel, err := filepath.Rel(root, absPath)
+		if err != nil || strings.HasPrefix(rel, "..") || strings.HasPrefix(rel, "/") {
+			return fmt.Errorf("path '%s' escapes project root", relPath)
+		}
+
 		info, err := os.Stat(absPath)
 		if err != nil {
 			return fmt.Errorf("path '%s' does not exist", relPath)
@@ -260,10 +300,11 @@ func validateNewRepos(root string, newRepos map[string]string, existing map[stri
 	// Check for duplicate paths in the input batch
 	seenPaths := make(map[string]string)
 	for name, path := range newRepos {
-		if otherName, ok := seenPaths[path]; ok {
+		cleanPath := fileUtil.NormalizePath(path)
+		if otherName, ok := seenPaths[cleanPath]; ok {
 			return fmt.Errorf("duplicate path '%s' used by '%s' and '%s'", path, otherName, name)
 		}
-		seenPaths[path] = name
+		seenPaths[cleanPath] = name
 	}
 
 	return nil

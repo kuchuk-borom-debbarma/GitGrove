@@ -16,6 +16,10 @@ type Repo struct {
 	// Path is the relative path from the GitGroove root to the repo root.
 	// It uses forward slashes ("/") as separators.
 	Path string `json:"path"`
+
+	// Parent is the name of the parent repository in the hierarchy.
+	// Empty if it's a root repository.
+	Parent string `json:"parent,omitempty"`
 }
 
 // RepoLink represents the relationship between two registered repositories.
@@ -31,3 +35,5 @@ type RepoLink struct {
 	// Unique name of the child repo.
 	Child string `json:"child"`
 }
+
+const DefaultRepoBranch = "main"
