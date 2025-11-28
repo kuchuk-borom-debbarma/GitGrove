@@ -2,7 +2,9 @@
 set -e
 
 # Define paths
-PROJECT_ROOT=$(pwd)
+# Define paths
+PROJECT_ROOT="$(git rev-parse --show-toplevel)"
+cd "$PROJECT_ROOT"
 BUILD_DIR="$PROJECT_ROOT/build"
 DEMO_DIR="$BUILD_DIR/demo"
 
