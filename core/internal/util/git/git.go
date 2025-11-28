@@ -3,6 +3,7 @@ package git
 import (
 	"bytes"
 	"errors"
+	"io"
 	"os/exec"
 	"strings"
 )
@@ -101,4 +102,64 @@ func StagePath(repoPath, relativePath string) error {
 func Commit(repoPath, message string) error {
 	_, err := runGit(repoPath, "commit", "-m", message)
 	return err
+}
+
+func ResolveRef(repoPath, ref string) (string, error) {
+	return runGit(repoPath, "rev-parse", ref)
+}
+
+func ShowFile(repoPath, ref, filePath string) (string, error) {
+	return runGit(repoPath, "show", ref+":"+filePath)
+}
+
+func WorktreeAddDetached(repoPath, worktreePath, ref string) error {
+	_, err := runGit(repoPath, "worktree", "add", "--detach", worktreePath, ref)
+	return err
+}
+
+func WorktreeRemove(repoPath, worktreePath string) error {
+	_, err := runGit(repoPath, "worktree", "remove", "--force", worktreePath)
+	return err
+}
+
+func UpdateRef(repoPath, ref, newHash, oldHash string) error {
+	_, err := runGit(repoPath, "update-ref", ref, newHash, oldHash)
+	return err
+}
+
+func GetHeadCommit(repoPath string) (string, error) {
+	return runGit(repoPath, "rev-parse", "HEAD")
+}
+
+func StreamFile(repoPath, ref, filePath string) (io.ReadCloser, error) {
+	cmd := exec.Command("git", "show", ref+":"+filePath)
+	cmd.Dir = repoPath
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+
+	// We return a ReadCloser that waits for command completion on Close
+	return &cmdReadCloser{pipe: stdout, cmd: cmd}, nil
+}
+
+type cmdReadCloser struct {
+	pipe io.ReadCloser
+	cmd  *exec.Cmd
+}
+
+func (c *cmdReadCloser) Read(p []byte) (n int, err error) {
+	return c.pipe.Read(p)
+}
+
+func (c *cmdReadCloser) Close() error {
+	// Close pipe first
+	c.pipe.Close()
+	// Wait for command to finish
+	return c.cmd.Wait()
 }
