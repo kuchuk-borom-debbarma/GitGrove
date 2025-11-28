@@ -45,6 +45,8 @@ git commit -m "Initial commit"
 
 echo "Copying gitgrove binary to demo root..."
 cp "$BUILD_DIR/gitgrove" .
+git add gitgrove
+git commit -m "Add gitgrove binary"
 
 echo "Setup complete!"
 echo "You can now run the demo:"

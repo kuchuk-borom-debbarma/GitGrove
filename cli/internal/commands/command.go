@@ -34,5 +34,8 @@ func (CommandRunner) Run(command Command, args map[string]any) {
 		fmt.Println("[ERROR]: Invalid Arguments ", err)
 		return
 	}
-	command.Execute(args)
+	err = command.Execute(args)
+	if err != nil {
+		fmt.Println("[ERROR]: Execution failed:", err)
+	}
 }

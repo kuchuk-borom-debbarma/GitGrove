@@ -2,7 +2,8 @@ package commands
 
 import (
 	"os"
-	"os/exec"
+
+	"github.com/kuchuk-borom-debbarma/GitGrove/core"
 )
 
 type initCommand struct{}
@@ -20,11 +21,11 @@ func (initCommand) ValidateArgs(args map[string]any) error {
 }
 
 func (initCommand) Execute(args map[string]any) error {
-	cmd := exec.Command("./gitgrove", "init")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-	return cmd.Run()
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	return core.Init(cwd)
 }
 
 func init() {
