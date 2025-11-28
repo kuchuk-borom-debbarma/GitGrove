@@ -115,7 +115,7 @@ func CreateAndCheckoutBranch(path, branch string) error {
 }
 
 func StagePath(repoPath, relativePath string) error {
-	_, err := runGit(repoPath, "add", relativePath)
+	_, err := runGit(repoPath, "add", "-f", relativePath)
 	return err
 }
 
@@ -177,4 +177,28 @@ func ListTree(repoPath, ref, path string) ([]string, error) {
 		return []string{}, nil
 	}
 	return strings.Split(out, "\n"), nil
+}
+
+func GetCurrentBranch(repoPath string) (string, error) {
+	return runGit(repoPath, "rev-parse", "--abbrev-ref", "HEAD")
+}
+
+func Checkout(repoPath, branch string) error {
+	_, err := runGit(repoPath, "checkout", branch)
+	return err
+}
+
+func CheckoutPath(repoPath, ref, path string) error {
+	_, err := runGit(repoPath, "checkout", ref, "--", path)
+	return err
+}
+
+func UnstagePath(repoPath, path string) error {
+	_, err := runGit(repoPath, "restore", "--staged", path)
+	return err
+}
+
+func ResetHard(repoPath, ref string) error {
+	_, err := runGit(repoPath, "reset", "--hard", ref)
+	return err
 }
