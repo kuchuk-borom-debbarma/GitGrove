@@ -136,6 +136,16 @@ func Register(rootAbsPath string, repos map[string]string) error {
 		return fmt.Errorf("failed to update %s (concurrent modification?): %w", systemRef, err)
 	}
 
+	// If we are currently on the system branch, we must update the working tree to match the new commit.
+	// Otherwise, the working tree will appear "dirty" (missing the new files we just committed).
+	currentBranch, err := gitUtil.GetCurrentBranch(rootAbsPath)
+	if err == nil && currentBranch == "gitgroove/system" {
+		log.Info().Msg("Updating working tree to match new system state")
+		if err := gitUtil.ResetHard(rootAbsPath, "HEAD"); err != nil {
+			return fmt.Errorf("failed to update working tree: %w", err)
+		}
+	}
+
 	log.Info().Msg("Successfully registered repositories")
 	return nil
 }

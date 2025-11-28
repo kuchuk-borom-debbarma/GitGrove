@@ -9,3 +9,8 @@ import (
 func Init(absolutePath string) error {
 	return grove.Init(absolutePath)
 }
+
+// Register records one or more repos (name → path) in the GitGroove metadata.
+func Register(rootAbsPath string, repos map[string]string) error {
+	return grove.Register(rootAbsPath, repos)
+}
