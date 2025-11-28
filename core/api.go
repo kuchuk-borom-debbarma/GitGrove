@@ -14,3 +14,8 @@ func Init(absolutePath string) error {
 func Register(rootAbsPath string, repos map[string]string) error {
 	return grove.Register(rootAbsPath, repos)
 }
+
+// Link defines one or more repo hierarchy relationships (childName → parentName).
+func Link(rootAbsPath string, relationships map[string]string) error {
+	return grove.Link(rootAbsPath, relationships)
+}
