@@ -3,7 +3,6 @@ package git
 import (
 	"bytes"
 	"errors"
-	"io"
 	"os/exec"
 	"strings"
 )
@@ -167,39 +166,6 @@ func SetRef(repoPath, ref, newHash string) error {
 
 func GetHeadCommit(repoPath string) (string, error) {
 	return runGit(repoPath, "rev-parse", "HEAD")
-}
-
-func StreamFile(repoPath, ref, filePath string) (io.ReadCloser, error) {
-	cmd := exec.Command("git", "show", ref+":"+filePath)
-	cmd.Dir = repoPath
-
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, err
-	}
-
-	if err := cmd.Start(); err != nil {
-		return nil, err
-	}
-
-	// We return a ReadCloser that waits for command completion on Close
-	return &cmdReadCloser{pipe: stdout, cmd: cmd}, nil
-}
-
-type cmdReadCloser struct {
-	pipe io.ReadCloser
-	cmd  *exec.Cmd
-}
-
-func (c *cmdReadCloser) Read(p []byte) (n int, err error) {
-	return c.pipe.Read(p)
-}
-
-func (c *cmdReadCloser) Close() error {
-	// Close pipe first
-	c.pipe.Close()
-	// Wait for command to finish
-	return c.cmd.Wait()
 }
 
 func ListTree(repoPath, ref, path string) ([]string, error) {

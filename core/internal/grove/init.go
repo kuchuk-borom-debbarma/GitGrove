@@ -64,6 +64,26 @@ func Init(absolutePath string) error {
 	absolutePath = fileUtil.NormalizePath(absolutePath)
 	ggPath := filepath.Join(absolutePath, ".gg")
 
+	if err := validateInitEnvironment(absolutePath, ggPath); err != nil {
+		return err
+	}
+
+	fmt.Println("Initializing GitGroove in", absolutePath)
+
+	if err := createMetadataDirectories(ggPath); err != nil {
+		return err
+	}
+
+	if err := initializeSystemBranch(absolutePath); err != nil {
+		return err
+	}
+
+	log.Info().Msg("GitGroove initialized successfully")
+
+	return nil
+}
+
+func validateInitEnvironment(absolutePath, ggPath string) error {
 	// MUST be an existing git repo
 	if !git.IsInsideGitRepo(absolutePath) {
 		return fmt.Errorf("GitGroove cannot initialize: not a valid Git repository")
@@ -87,9 +107,10 @@ func Init(absolutePath string) error {
 	if exists {
 		return fmt.Errorf("gitgroove/system branch already exists — GitGroove may already be initialized")
 	}
+	return nil
+}
 
-	fmt.Println("Initializing GitGroove in", absolutePath)
-
+func createMetadataDirectories(ggPath string) error {
 	// Create .gg
 	if err := fileUtil.CreateDir(ggPath); err != nil {
 		return fmt.Errorf("failed to create .gg: %w", err)
@@ -108,7 +129,10 @@ func Init(absolutePath string) error {
 	if err := fileUtil.WriteTextFile(gitKeepFile, ""); err != nil {
 		return fmt.Errorf("failed to create .gitkeep: %w", err)
 	}
+	return nil
+}
 
+func initializeSystemBranch(absolutePath string) error {
 	// Create and checkout system branch
 	if err := git.CreateAndCheckoutBranch(absolutePath, "gitgroove/system"); err != nil {
 		return fmt.Errorf("failed creating system branch: %w", err)
@@ -123,8 +147,5 @@ func Init(absolutePath string) error {
 	if err := git.Commit(absolutePath, "Initialize GitGroove system branch"); err != nil {
 		return fmt.Errorf("failed committing metadata: %w", err)
 	}
-
-	log.Info().Msg("GitGroove initialized successfully")
-
 	return nil
 }

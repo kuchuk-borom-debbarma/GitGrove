@@ -103,11 +103,8 @@ func Register(rootAbsPath string, repos map[string]string) error {
 	log.Info().Msgf("Attempting to register %d repos in %s", len(repos), rootAbsPath)
 
 	// 1. Validate environment
-	if !gitUtil.IsInsideGitRepo(rootAbsPath) {
-		return fmt.Errorf("not a git repository: %s", rootAbsPath)
-	}
-	if err := gitUtil.VerifyCleanState(rootAbsPath); err != nil {
-		return fmt.Errorf("working tree is not clean: %w", err)
+	if err := validateRegisterEnvironment(rootAbsPath); err != nil {
+		return err
 	}
 
 	// 2. Read latest gitgroove/system commit
@@ -128,16 +125,42 @@ func Register(rootAbsPath string, repos map[string]string) error {
 		return fmt.Errorf("validation failed: %w", err)
 	}
 
+	// 5. Prepare updated metadata in temporary workspace and create commit
+	newTip, err := createRegisterCommit(rootAbsPath, oldTip, repos)
+	if err != nil {
+		return err
+	}
+
+	// 7. Atomically update gitgroove/system
+	if err := gitUtil.UpdateRef(rootAbsPath, systemRef, newTip, oldTip); err != nil {
+		return fmt.Errorf("failed to update %s (concurrent modification?): %w", systemRef, err)
+	}
+
+	log.Info().Msg("Successfully registered repositories")
+	return nil
+}
+
+func validateRegisterEnvironment(rootAbsPath string) error {
+	if !gitUtil.IsInsideGitRepo(rootAbsPath) {
+		return fmt.Errorf("not a git repository: %s", rootAbsPath)
+	}
+	if err := gitUtil.VerifyCleanState(rootAbsPath); err != nil {
+		return fmt.Errorf("working tree is not clean: %w", err)
+	}
+	return nil
+}
+
+func createRegisterCommit(rootAbsPath, oldTip string, repos map[string]string) (string, error) {
 	// 5. Prepare updated metadata in temporary workspace
 	tempDir, err := os.MkdirTemp("", "gitgroove-register-*")
 	if err != nil {
-		return fmt.Errorf("failed to create temp dir: %w", err)
+		return "", fmt.Errorf("failed to create temp dir: %w", err)
 	}
 	defer os.RemoveAll(tempDir) // cleanup
 
 	// Create detached worktree at oldTip
 	if err := gitUtil.WorktreeAddDetached(rootAbsPath, tempDir, oldTip); err != nil {
-		return fmt.Errorf("failed to create temporary worktree: %w", err)
+		return "", fmt.Errorf("failed to create temporary worktree: %w", err)
 	}
 	defer gitUtil.WorktreeRemove(rootAbsPath, tempDir) // cleanup worktree
 
@@ -145,7 +168,7 @@ func Register(rootAbsPath string, repos map[string]string) error {
 	for name, path := range repos {
 		repoDir := filepath.Join(tempDir, ".gg", "repos", name)
 		if err := os.MkdirAll(repoDir, 0755); err != nil {
-			return fmt.Errorf("failed to create dir for repo %s: %w", name, err)
+			return "", fmt.Errorf("failed to create dir for repo %s: %w", name, err)
 		}
 
 		pathFile := filepath.Join(repoDir, "path")
@@ -158,30 +181,23 @@ func Register(rootAbsPath string, repos map[string]string) error {
 		}
 
 		if err := os.WriteFile(pathFile, []byte(cleanPath), 0644); err != nil {
-			return fmt.Errorf("failed to write path for repo %s: %w", name, err)
+			return "", fmt.Errorf("failed to write path for repo %s: %w", name, err)
 		}
 	}
 
 	// 6. Create new commit
 	// Stage everything in .gg/repos
 	if err := gitUtil.StagePath(tempDir, ".gg/repos"); err != nil {
-		return fmt.Errorf("failed to stage .gg/repos: %w", err)
+		return "", fmt.Errorf("failed to stage .gg/repos: %w", err)
 	}
 	if err := gitUtil.Commit(tempDir, fmt.Sprintf("Register %d new repositories", len(repos))); err != nil {
-		return fmt.Errorf("failed to commit metadata changes: %w", err)
+		return "", fmt.Errorf("failed to commit metadata changes: %w", err)
 	}
 	newTip, err := gitUtil.GetHeadCommit(tempDir)
 	if err != nil {
-		return fmt.Errorf("failed to get new commit hash: %w", err)
+		return "", fmt.Errorf("failed to get new commit hash: %w", err)
 	}
-
-	// 7. Atomically update gitgroove/system
-	if err := gitUtil.UpdateRef(rootAbsPath, systemRef, newTip, oldTip); err != nil {
-		return fmt.Errorf("failed to update %s (concurrent modification?): %w", systemRef, err)
-	}
-
-	log.Info().Msg("Successfully registered repositories")
-	return nil
+	return newTip, nil
 }
 
 func loadExistingRepos(root, ref string) (map[string]model.Repo, error) {

@@ -172,11 +172,8 @@ func Link(rootAbsPath string, relationships map[string]string) error {
 	log.Info().Msgf("Attempting to link %d relationships in %s", len(relationships), rootAbsPath)
 
 	// 1. Validate environment
-	if !gitUtil.IsInsideGitRepo(rootAbsPath) {
-		return fmt.Errorf("not a git repository: %s", rootAbsPath)
-	}
-	if err := gitUtil.VerifyCleanState(rootAbsPath); err != nil {
-		return fmt.Errorf("working tree is not clean: %w", err)
+	if err := validateLinkEnvironment(rootAbsPath); err != nil {
+		return err
 	}
 
 	// 2. Read latest gitgroove/system commit
@@ -197,16 +194,47 @@ func Link(rootAbsPath string, relationships map[string]string) error {
 		return fmt.Errorf("validation failed: %w", err)
 	}
 
+	// 5. Prepare updated metadata in temporary workspace and create commit
+	newTip, err := applyRelationships(rootAbsPath, oldTip, relationships)
+	if err != nil {
+		return err
+	}
+
+	// 7. Atomically update gitgroove/system
+	if err := gitUtil.UpdateRef(rootAbsPath, systemRef, newTip, oldTip); err != nil {
+		return fmt.Errorf("failed to update %s (concurrent modification?): %w", systemRef, err)
+	}
+
+	// 8. Build derived branches.
+	if err := rebuildDerivedBranches(rootAbsPath, newTip); err != nil {
+		return err
+	}
+
+	log.Info().Msg("Successfully linked repositories")
+	return nil
+}
+
+func validateLinkEnvironment(rootAbsPath string) error {
+	if !gitUtil.IsInsideGitRepo(rootAbsPath) {
+		return fmt.Errorf("not a git repository: %s", rootAbsPath)
+	}
+	if err := gitUtil.VerifyCleanState(rootAbsPath); err != nil {
+		return fmt.Errorf("working tree is not clean: %w", err)
+	}
+	return nil
+}
+
+func applyRelationships(rootAbsPath, oldTip string, relationships map[string]string) (string, error) {
 	// 5. Prepare updated metadata in temporary workspace
 	tempDir, err := os.MkdirTemp("", "gitgroove-link-*")
 	if err != nil {
-		return fmt.Errorf("failed to create temp dir: %w", err)
+		return "", fmt.Errorf("failed to create temp dir: %w", err)
 	}
 	defer os.RemoveAll(tempDir) // cleanup
 
 	// Create detached worktree at oldTip
 	if err := gitUtil.WorktreeAddDetached(rootAbsPath, tempDir, oldTip); err != nil {
-		return fmt.Errorf("failed to create temporary worktree: %w", err)
+		return "", fmt.Errorf("failed to create temporary worktree: %w", err)
 	}
 	defer gitUtil.WorktreeRemove(rootAbsPath, tempDir) // cleanup worktree
 
@@ -218,42 +246,35 @@ func Link(rootAbsPath string, relationships map[string]string) error {
 		// Write parent pointer
 		parentFile := filepath.Join(tempDir, ".gg", "repos", child, "parent")
 		if err := os.WriteFile(parentFile, []byte(parent), 0644); err != nil {
-			return fmt.Errorf("failed to write parent for %s: %w", child, err)
+			return "", fmt.Errorf("failed to write parent for %s: %w", child, err)
 		}
 
 		// Write child pointer in parent's folder
 		childrenDir := filepath.Join(tempDir, ".gg", "repos", parent, "children")
 		if err := os.MkdirAll(childrenDir, 0755); err != nil {
-			return fmt.Errorf("failed to create children dir for %s: %w", parent, err)
+			return "", fmt.Errorf("failed to create children dir for %s: %w", parent, err)
 		}
 		childFile := filepath.Join(childrenDir, child)
 		if err := os.WriteFile(childFile, []byte{}, 0644); err != nil {
-			return fmt.Errorf("failed to write child entry %s in %s: %w", child, parent, err)
+			return "", fmt.Errorf("failed to write child entry %s in %s: %w", child, parent, err)
 		}
 	}
 
 	// 6. Commit updated metadata
 	if err := gitUtil.StagePath(tempDir, ".gg/repos"); err != nil {
-		return fmt.Errorf("failed to stage .gg/repos: %w", err)
+		return "", fmt.Errorf("failed to stage .gg/repos: %w", err)
 	}
 	if err := gitUtil.Commit(tempDir, fmt.Sprintf("Link %d repositories", len(relationships))); err != nil {
-		return fmt.Errorf("failed to commit metadata changes: %w", err)
+		return "", fmt.Errorf("failed to commit metadata changes: %w", err)
 	}
 	newTip, err := gitUtil.GetHeadCommit(tempDir)
 	if err != nil {
-		return fmt.Errorf("failed to get new commit hash: %w", err)
+		return "", fmt.Errorf("failed to get new commit hash: %w", err)
 	}
+	return newTip, nil
+}
 
-	// 7. Atomically update gitgroove/system
-	if err := gitUtil.UpdateRef(rootAbsPath, systemRef, newTip, oldTip); err != nil {
-		return fmt.Errorf("failed to update %s (concurrent modification?): %w", systemRef, err)
-	}
-
-	// 8. Build derived branches.
-	// Since we already validate that these links are new we can build branches.
-	// This will go from child to parent to .... root and use that as a reference to build the branch.
-	// Since we store repos as dirs we can easily navigate to root by keeping track of the parent as we go up and building the branch name at the same time
-
+func rebuildDerivedBranches(rootAbsPath, newTip string) error {
 	// Reload repos from the new system state to get the complete picture including new links
 	allRepos, err := loadExistingRepos(rootAbsPath, newTip)
 	if err != nil {
@@ -301,8 +322,6 @@ func Link(rootAbsPath string, relationships map[string]string) error {
 			return fmt.Errorf("failed to update branch ref %s: %w", branchName, err)
 		}
 	}
-
-	log.Info().Msg("Successfully linked repositories")
 	return nil
 }
 
