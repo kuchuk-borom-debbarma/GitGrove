@@ -21,11 +21,19 @@ func runGit(dir string, args ...string) (string, error) {
 	return strings.TrimSpace(out.String()), err
 }
 
+// IsInsideGitRepo checks if the given path is inside a Git working tree.
+//
+// It runs `git rev-parse --is-inside-work-tree`.
+// Returns true only if the command succeeds and outputs "true".
 func IsInsideGitRepo(path string) bool {
 	out, err := runGit(path, "rev-parse", "--is-inside-work-tree")
 	return err == nil && out == "true"
 }
 
+// IsDetachedHEAD checks if HEAD is detached (not pointing to a branch ref).
+//
+// It runs `git rev-parse --symbolic-full-name HEAD`.
+// If HEAD is detached, the output is "HEAD". If attached, it returns the full ref (e.g., "refs/heads/main").
 func IsDetachedHEAD(path string) bool {
 	out, err := runGit(path, "rev-parse", "--symbolic-full-name", "HEAD")
 	if err != nil {
@@ -52,6 +60,15 @@ func HasUntrackedFiles(path string) bool {
 	return strings.TrimSpace(out) != ""
 }
 
+// VerifyCleanState ensures the repository is in a clean state suitable for critical operations.
+//
+// It performs a comprehensive check:
+//  1. Is HEAD detached? (We generally require being on a branch for safety, though some ops might work detached).
+//  2. Are there staged changes? (git diff --cached --quiet)
+//  3. Are there unstaged changes? (git diff --quiet)
+//  4. Are there untracked files? (git ls-files --others --exclude-standard)
+//
+// Returns nil if clean, or an error detailing all found issues.
 func VerifyCleanState(path string) error {
 	var issues []string
 
@@ -75,6 +92,10 @@ func VerifyCleanState(path string) error {
 	return errors.New("repository is not clean: " + strings.Join(issues, "; "))
 }
 
+// HasBranch checks if a local branch exists.
+//
+// It uses `git rev-parse --verify --quiet <branch>`.
+// Returns true if the branch ref exists, false otherwise.
 func HasBranch(path, branch string) (bool, error) {
 	_, err := runGit(path, "rev-parse", "--verify", "--quiet", branch)
 
@@ -112,6 +133,10 @@ func ShowFile(repoPath, ref, filePath string) (string, error) {
 	return runGit(repoPath, "show", ref+":"+filePath)
 }
 
+// WorktreeAddDetached creates a temporary linked worktree detached at a specific commit.
+//
+// This is used for safe metadata manipulation without disturbing the user's primary working tree.
+// It runs `git worktree add --detach <worktreePath> <ref>`.
 func WorktreeAddDetached(repoPath, worktreePath, ref string) error {
 	_, err := runGit(repoPath, "worktree", "add", "--detach", worktreePath, ref)
 	return err
@@ -122,6 +147,11 @@ func WorktreeRemove(repoPath, worktreePath string) error {
 	return err
 }
 
+// UpdateRef updates a ref to a new value, but ONLY if it currently matches oldHash.
+//
+// This implements Optimistic Concurrency Control (CAS - Compare And Swap).
+// It runs `git update-ref <ref> <newHash> <oldHash>`.
+// If the ref has changed since oldHash was read, this command fails, preventing race conditions.
 func UpdateRef(repoPath, ref, newHash, oldHash string) error {
 	_, err := runGit(repoPath, "update-ref", ref, newHash, oldHash)
 	return err
@@ -162,4 +192,15 @@ func (c *cmdReadCloser) Close() error {
 	c.pipe.Close()
 	// Wait for command to finish
 	return c.cmd.Wait()
+}
+
+func ListTree(repoPath, ref, path string) ([]string, error) {
+	out, err := runGit(repoPath, "ls-tree", "--name-only", ref+":"+path)
+	if err != nil {
+		return nil, err
+	}
+	if out == "" {
+		return []string{}, nil
+	}
+	return strings.Split(out, "\n"), nil
 }

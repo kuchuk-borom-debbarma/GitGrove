@@ -1,14 +1,12 @@
 package grove_test
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/kuchuk-borom-debbarma/GitGrove/core/internal/grove"
-	"github.com/kuchuk-borom-debbarma/GitGrove/core/internal/grove/model"
 	gitUtil "github.com/kuchuk-borom-debbarma/GitGrove/core/internal/util/git"
 )
 
@@ -37,29 +35,23 @@ func TestRegister(t *testing.T) {
 		t.Fatalf("Register failed: %v", err)
 	}
 
-	// Verify repos.jsonl content
-	content, err := gitUtil.ShowFile(temp, "gitgroove/system", ".gg/repos.jsonl")
+	// Verify .gg/repos content
+	// Check backend repo
+	backendPathContent, err := gitUtil.ShowFile(temp, "gitgroove/system", ".gg/repos/backend/path")
 	if err != nil {
-		t.Fatalf("failed to read repos.jsonl: %v", err)
+		t.Fatalf("failed to read backend path: %v", err)
+	}
+	if strings.TrimSpace(backendPathContent) != "backend" {
+		t.Errorf("expected backend path 'backend', got '%s'", backendPathContent)
 	}
 
-	lines := strings.Split(strings.TrimSpace(content), "\n")
-	if len(lines) != 2 {
-		t.Fatalf("expected 2 lines in repos.jsonl, got %d", len(lines))
+	// Check frontend repo
+	frontendPathContent, err := gitUtil.ShowFile(temp, "gitgroove/system", ".gg/repos/frontend/path")
+	if err != nil {
+		t.Fatalf("failed to read frontend path: %v", err)
 	}
-
-	var r1, r2 model.Repo
-	json.Unmarshal([]byte(lines[0]), &r1)
-	json.Unmarshal([]byte(lines[1]), &r2)
-
-	// Order isn't guaranteed in map iteration, so check existence
-	registered := map[string]string{
-		r1.Name: r1.Path,
-		r2.Name: r2.Path,
-	}
-
-	if registered["backend"] != "backend" || registered["frontend"] != "frontend" {
-		t.Fatalf("unexpected registration result: %v", registered)
+	if strings.TrimSpace(frontendPathContent) != "frontend" {
+		t.Errorf("expected frontend path 'frontend', got '%s'", frontendPathContent)
 	}
 
 	// Test Case 2: Duplicate Name

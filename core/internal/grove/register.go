@@ -1,5 +1,17 @@
 package grove
 
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/kuchuk-borom-debbarma/GitGrove/core/internal/grove/model"
+	fileUtil "github.com/kuchuk-borom-debbarma/GitGrove/core/internal/util/file"
+	gitUtil "github.com/kuchuk-borom-debbarma/GitGrove/core/internal/util/git"
+	"github.com/rs/zerolog/log"
+)
+
 // Register records one or more repos (name → path) in the GitGroove metadata.
 //
 // High-level behavior:
@@ -84,22 +96,6 @@ package grove
 //
 // Register must be atomic: if any repo fails validation or the CAS (compare-and-swap) ref update
 // fails, no partial metadata is written and the system state remains unchanged.
-import (
-	"bufio"
-	"encoding/json"
-	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
-
-	"github.com/kuchuk-borom-debbarma/GitGrove/core/internal/grove/model"
-	fileUtil "github.com/kuchuk-borom-debbarma/GitGrove/core/internal/util/file"
-	gitUtil "github.com/kuchuk-borom-debbarma/GitGrove/core/internal/util/git"
-	"github.com/rs/zerolog/log"
-)
-
-// Register records one or more repos (name → path) in the GitGroove metadata.
-// ... (keeping comments as is, but for brevity in tool call I'm just replacing the function body) ...
 func Register(rootAbsPath string, repos map[string]string) error {
 	log.Info().Msgf("Attempting to register %d repos in %s", len(repos), rootAbsPath)
 
@@ -142,26 +138,23 @@ func Register(rootAbsPath string, repos map[string]string) error {
 	}
 	defer gitUtil.WorktreeRemove(rootAbsPath, tempDir) // cleanup worktree
 
-	// Append new repos to .gg/repos.jsonl
-	reposFile := filepath.Join(tempDir, ".gg", "repos.jsonl")
-	f, err := os.OpenFile(reposFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return fmt.Errorf("failed to open repos.jsonl: %w", err)
-	}
-
-	encoder := json.NewEncoder(f)
+	// Write new repos to .gg/repos/<name>/path
 	for name, path := range repos {
-		repo := model.Repo{Name: name, Path: path}
-		if err := encoder.Encode(repo); err != nil {
-			f.Close()
-			return fmt.Errorf("failed to encode repo %s: %w", name, err)
+		repoDir := filepath.Join(tempDir, ".gg", "repos", name)
+		if err := os.MkdirAll(repoDir, 0755); err != nil {
+			return fmt.Errorf("failed to create dir for repo %s: %w", name, err)
+		}
+
+		pathFile := filepath.Join(repoDir, "path")
+		if err := os.WriteFile(pathFile, []byte(path), 0644); err != nil {
+			return fmt.Errorf("failed to write path for repo %s: %w", name, err)
 		}
 	}
-	f.Close()
 
 	// 6. Create new commit
-	if err := gitUtil.StagePath(tempDir, ".gg/repos.jsonl"); err != nil {
-		return fmt.Errorf("failed to stage repos.jsonl: %w", err)
+	// Stage everything in .gg/repos
+	if err := gitUtil.StagePath(tempDir, ".gg/repos"); err != nil {
+		return fmt.Errorf("failed to stage .gg/repos: %w", err)
 	}
 	if err := gitUtil.Commit(tempDir, fmt.Sprintf("Register %d new repositories", len(repos))); err != nil {
 		return fmt.Errorf("failed to commit metadata changes: %w", err)
@@ -181,31 +174,42 @@ func Register(rootAbsPath string, repos map[string]string) error {
 }
 
 func loadExistingRepos(root, ref string) (map[string]model.Repo, error) {
-	rc, err := gitUtil.StreamFile(root, ref, ".gg/repos.jsonl")
+	// List directories in .gg/repos
+	// Note: .gg/repos might not exist if no repos are registered yet.
+	// git ls-tree will fail if the path doesn't exist.
+	// We should check if .gg/repos exists first or handle the error.
+	// runGit returns error if path not found.
+
+	entries, err := gitUtil.ListTree(root, ref, ".gg/repos")
 	if err != nil {
-		// If streaming fails, it might be because the file doesn't exist (fresh init).
-		// In a real implementation we'd check the specific git error.
-		// For now, we assume failure means empty/missing.
+		// Assume error means path not found (empty)
+		// In a robust implementation we'd check the error message or code.
 		return map[string]model.Repo{}, nil
 	}
-	defer rc.Close()
 
 	repos := make(map[string]model.Repo)
-	scanner := bufio.NewScanner(rc)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
+	for _, name := range entries {
+		// Ignore .gitkeep
+		if name == ".gitkeep" {
 			continue
 		}
-		var r model.Repo
-		if err := json.Unmarshal([]byte(line), &r); err != nil {
-			return nil, fmt.Errorf("malformed repos.jsonl: %w", err)
-		}
-		repos[r.Name] = r
-	}
 
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("error reading repos.jsonl: %w", err)
+		// Each entry is a repo name (directory)
+		// Read .gg/repos/<name>/path
+		pathFile := fmt.Sprintf(".gg/repos/%s/path", name)
+		content, err := gitUtil.ShowFile(root, ref, pathFile)
+		if err != nil {
+			// If path file is missing, skip or error?
+			// Should be consistent. Let's log and skip or error.
+			// For now, return error as it implies corruption.
+			return nil, fmt.Errorf("failed to read path for repo %s: %w", name, err)
+		}
+
+		repoPath := strings.TrimSpace(content)
+		repos[name] = model.Repo{
+			Name: name,
+			Path: repoPath,
+		}
 	}
 
 	return repos, nil
