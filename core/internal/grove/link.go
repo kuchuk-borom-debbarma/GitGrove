@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/kuchuk-borom-debbarma/GitGrove/core/internal/grove/model"
 	fileUtil "github.com/kuchuk-borom-debbarma/GitGrove/core/internal/util/file"
@@ -248,19 +249,60 @@ func Link(rootAbsPath string, relationships map[string]string) error {
 		return fmt.Errorf("failed to update %s (concurrent modification?): %w", systemRef, err)
 	}
 
-	// 8. Rebuild derived branches
-	if err := rebuildBranches(rootAbsPath, newTip); err != nil {
-		// Note: Metadata is already committed. Failure here means branches are out of sync.
-		// We should probably return the error so the user knows.
-		return fmt.Errorf("failed to rebuild branches: %w", err)
+	// 8. Build derived branches.
+	// Since we already validate that these links are new we can build branches.
+	// This will go from child to parent to .... root and use that as a reference to build the branch.
+	// Since we store repos as dirs we can easily navigate to root by keeping track of the parent as we go up and building the branch name at the same time
+
+	// Reload repos from the new system state to get the complete picture including new links
+	allRepos, err := loadExistingRepos(rootAbsPath, newTip)
+	if err != nil {
+		return fmt.Errorf("failed to reload repos from new tip: %w", err)
+	}
+
+	// For now, we use the project HEAD as the content for all branches.
+	// TODO: In the future, construct an isolated repo tree containing only the ancestry paths.
+	projectHead, err := gitUtil.GetHeadCommit(rootAbsPath)
+	if err != nil {
+		return fmt.Errorf("failed to get project HEAD: %w", err)
+	}
+
+	for _, repo := range allRepos {
+		// Build ancestry: child -> parent -> ... -> root
+		var ancestry []model.Repo
+		current := repo
+		for {
+			ancestry = append(ancestry, current)
+			if current.Parent == "" {
+				break
+			}
+			parent, ok := allRepos[current.Parent]
+			if !ok {
+				// This implies a broken link in the committed metadata, which shouldn't happen if validation works.
+				log.Warn().Msgf("Repo %s has missing parent %s, skipping branch build", current.Name, current.Parent)
+				break
+			}
+			current = parent
+		}
+
+		// Reverse ancestry to get root -> ... -> child
+		// And build branch name parts
+		var pathSegments []string
+		for i := len(ancestry) - 1; i >= 0; i-- {
+			pathSegments = append(pathSegments, ancestry[i].Name)
+		}
+
+		// Construct branch name
+		// gitgroove/repos/<p1>/<p2>/.../<child>/branches/main
+		branchName := fmt.Sprintf("refs/heads/gitgroove/repos/%s/branches/%s", strings.Join(pathSegments, "/"), model.DefaultRepoBranch)
+
+		// Update the branch ref
+		if err := gitUtil.SetRef(rootAbsPath, branchName, projectHead); err != nil {
+			return fmt.Errorf("failed to update branch ref %s: %w", branchName, err)
+		}
 	}
 
 	log.Info().Msg("Successfully linked repositories")
-	return nil
-}
-
-func rebuildBranches(root, tip string) error {
-	// TODO: Implement derived branch reconstruction
 	return nil
 }
 

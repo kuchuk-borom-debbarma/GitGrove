@@ -74,6 +74,25 @@ func TestLink(t *testing.T) {
 		t.Errorf("expected child entry for backend in shared, got error: %v", err)
 	}
 
+	// Verify derived branches
+	// backend: refs/heads/gitgroove/repos/shared/backend/branches/main
+	backendBranch := "refs/heads/gitgroove/repos/shared/backend/branches/main"
+	if exists, _ := gitUtil.HasBranch(temp, backendBranch); !exists {
+		t.Errorf("expected branch %s to exist", backendBranch)
+	}
+
+	// frontend: refs/heads/gitgroove/repos/shared/frontend/branches/main
+	frontendBranch := "refs/heads/gitgroove/repos/shared/frontend/branches/main"
+	if exists, _ := gitUtil.HasBranch(temp, frontendBranch); !exists {
+		t.Errorf("expected branch %s to exist", frontendBranch)
+	}
+
+	// shared: refs/heads/gitgroove/repos/shared/branches/main
+	sharedBranch := "refs/heads/gitgroove/repos/shared/branches/main"
+	if exists, _ := gitUtil.HasBranch(temp, sharedBranch); !exists {
+		t.Errorf("expected branch %s to exist", sharedBranch)
+	}
+
 	// Test Case 2: Cycle Detection
 	// Try to make backend -> shared (creating a cycle shared -> backend -> shared)
 	cycleLinks := map[string]string{

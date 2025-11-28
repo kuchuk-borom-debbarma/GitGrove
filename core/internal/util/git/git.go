@@ -157,6 +157,14 @@ func UpdateRef(repoPath, ref, newHash, oldHash string) error {
 	return err
 }
 
+// SetRef updates a ref to a new value unconditionally.
+//
+// It runs `git update-ref <ref> <newHash>`.
+func SetRef(repoPath, ref, newHash string) error {
+	_, err := runGit(repoPath, "update-ref", ref, newHash)
+	return err
+}
+
 func GetHeadCommit(repoPath string) (string, error) {
 	return runGit(repoPath, "rev-parse", "HEAD")
 }
