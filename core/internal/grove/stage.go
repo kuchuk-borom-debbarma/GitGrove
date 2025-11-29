@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/kuchuk-borom-debbarma/GitGrove/core/internal/grove/model"
 	fileUtil "github.com/kuchuk-borom-debbarma/GitGrove/core/internal/util/file"
 	gitUtil "github.com/kuchuk-borom-debbarma/GitGrove/core/internal/util/git"
 )
@@ -51,42 +52,9 @@ func Stage(rootAbsPath string, files []string) error {
 	}
 
 	// 3. Validate files
-	targetRepoAbsPath := filepath.Join(rootAbsPath, targetRepo.Path)
-	var filesToStage []string
-
-	for _, file := range files {
-		// Normalize and resolve absolute path
-		cleanFile := fileUtil.NormalizePath(file)
-		absFile := cleanFile
-		if !filepath.IsAbs(cleanFile) {
-			absFile = filepath.Join(rootAbsPath, cleanFile)
-		}
-
-		// Check existence
-		if !fileUtil.Exists(absFile) {
-			return fmt.Errorf("pathspec '%s' did not match any files", file)
-		}
-
-		// Verify file is strictly inside the target repo
-		rel, err := filepath.Rel(targetRepoAbsPath, absFile)
-		if err != nil || strings.HasPrefix(rel, "..") || strings.HasPrefix(rel, "/") {
-			return fmt.Errorf("path '%s' is outside the current repository scope (%s)", file, targetRepo.Name)
-		}
-
-		// Nested Repo Check
-		if err := checkNestedRepo(targetRepoAbsPath, absFile); err != nil {
-			return err
-		}
-
-		// Collect relative path for batch staging
-		relToRoot, _ := filepath.Rel(rootAbsPath, absFile)
-
-		// Forbid staging .gg/ files
-		if strings.HasPrefix(relToRoot, ".gg/") || relToRoot == ".gg" {
-			return fmt.Errorf("cannot stage GitGroove metadata: %s", relToRoot)
-		}
-
-		filesToStage = append(filesToStage, relToRoot)
+	filesToStage, err := validateStagingFiles(rootAbsPath, targetRepo, files)
+	if err != nil {
+		return err
 	}
 
 	// 4. Batch Stage
@@ -101,6 +69,47 @@ func Stage(rootAbsPath string, files []string) error {
 	}
 
 	return nil
+}
+
+func validateStagingFiles(rootAbsPath string, targetRepo model.Repo, files []string) ([]string, error) {
+	targetRepoAbsPath := filepath.Join(rootAbsPath, targetRepo.Path)
+	var filesToStage []string
+
+	for _, file := range files {
+		// Normalize and resolve absolute path
+		cleanFile := fileUtil.NormalizePath(file)
+		absFile := cleanFile
+		if !filepath.IsAbs(cleanFile) {
+			absFile = filepath.Join(rootAbsPath, cleanFile)
+		}
+
+		// Check existence
+		if !fileUtil.Exists(absFile) {
+			return nil, fmt.Errorf("pathspec '%s' did not match any files", file)
+		}
+
+		// Verify file is strictly inside the target repo
+		rel, err := filepath.Rel(targetRepoAbsPath, absFile)
+		if err != nil || strings.HasPrefix(rel, "..") || strings.HasPrefix(rel, "/") {
+			return nil, fmt.Errorf("path '%s' is outside the current repository scope (%s)", file, targetRepo.Name)
+		}
+
+		// Nested Repo Check
+		if err := checkNestedRepo(targetRepoAbsPath, absFile); err != nil {
+			return nil, err
+		}
+
+		// Collect relative path for batch staging
+		relToRoot, _ := filepath.Rel(rootAbsPath, absFile)
+
+		// Forbid staging .gg/ files
+		if strings.HasPrefix(relToRoot, ".gg/") || relToRoot == ".gg" {
+			return nil, fmt.Errorf("cannot stage GitGroove metadata: %s", relToRoot)
+		}
+
+		filesToStage = append(filesToStage, relToRoot)
+	}
+	return filesToStage, nil
 }
 
 func checkNestedRepo(rootAbsPath, fileAbsPath string) error {
