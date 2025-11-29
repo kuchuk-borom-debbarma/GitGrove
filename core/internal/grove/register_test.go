@@ -54,6 +54,14 @@ func TestRegister(t *testing.T) {
 		t.Errorf("expected frontend path 'frontend', got '%s'", frontendPathContent)
 	}
 
+	// Verify .gitgroverepo marker files
+	if _, err := os.Stat(filepath.Join(temp, "backend", ".gitgroverepo")); os.IsNotExist(err) {
+		t.Errorf("expected .gitgroverepo marker in backend")
+	}
+	if _, err := os.Stat(filepath.Join(temp, "frontend", ".gitgroverepo")); os.IsNotExist(err) {
+		t.Errorf("expected .gitgroverepo marker in frontend")
+	}
+
 	// Test Case 2: Duplicate Name
 	err = grove.Register(temp, map[string]string{"backend": "other"})
 	if err == nil {

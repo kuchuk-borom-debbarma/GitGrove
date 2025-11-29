@@ -56,7 +56,17 @@ func HasUntrackedFiles(path string) bool {
 	if err != nil {
 		return false
 	}
-	return strings.TrimSpace(out) != ""
+	if strings.TrimSpace(out) == "" {
+		return false
+	}
+
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	for _, line := range lines {
+		if !strings.HasSuffix(line, ".gitgroverepo") {
+			return true
+		}
+	}
+	return false
 }
 
 // VerifyCleanState ensures the repository is in a clean state suitable for critical operations.

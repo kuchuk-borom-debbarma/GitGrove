@@ -125,14 +125,36 @@ func Register(rootAbsPath string, repos map[string]string) error {
 		return fmt.Errorf("validation failed: %w", err)
 	}
 
+	// Write .gitgroverepo marker files
+	// We track created markers to rollback if registration fails later.
+	var createdMarkers []string
+	cleanupMarkers := func() {
+		for _, p := range createdMarkers {
+			os.Remove(p)
+		}
+	}
+
+	for _, relPath := range repos {
+		absPath := filepath.Join(rootAbsPath, relPath)
+		markerPath := filepath.Join(absPath, ".gitgroverepo")
+		// We write an empty file
+		if err := os.WriteFile(markerPath, []byte{}, 0644); err != nil {
+			cleanupMarkers()
+			return fmt.Errorf("failed to create marker file %s: %w", markerPath, err)
+		}
+		createdMarkers = append(createdMarkers, markerPath)
+	}
+
 	// 5. Prepare updated metadata in temporary workspace and create commit
 	newTip, err := createRegisterCommit(rootAbsPath, oldTip, repos)
 	if err != nil {
+		cleanupMarkers()
 		return err
 	}
 
 	// 7. Atomically update gitgroove/system
 	if err := gitUtil.UpdateRef(rootAbsPath, systemRef, newTip, oldTip); err != nil {
+		cleanupMarkers()
 		return fmt.Errorf("failed to update %s (concurrent modification?): %w", systemRef, err)
 	}
 

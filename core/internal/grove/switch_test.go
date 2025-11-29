@@ -96,7 +96,7 @@ func TestSwitch(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to get current branch: %v", err)
 		}
-		expected := "gitgroove/repos/root/backend/branches/main"
+		expected := "gitgroove/repos/root/children/backend/branches/main"
 		if head != expected {
 			t.Errorf("expected HEAD to be %s, got %s", expected, head)
 		}
@@ -114,7 +114,7 @@ func TestSwitch(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to get current branch: %v", err)
 		}
-		expected := "gitgroove/repos/root/frontend/branches/main"
+		expected := "gitgroove/repos/root/children/frontend/branches/main"
 		if head != expected {
 			t.Errorf("expected HEAD to be %s, got %s", expected, head)
 		}
