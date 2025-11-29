@@ -34,3 +34,13 @@ func Status(rootAbsPath string) (string, error) {
 	}
 	return s.String(), nil
 }
+
+// CreateRepoBranch creates a new branch for a specific nested repository.
+func CreateRepoBranch(rootAbsPath, repoName, branchName string) error {
+	return grove.CreateRepoBranch(rootAbsPath, repoName, branchName)
+}
+
+// CheckoutRepo switches the user's working tree to a specific branch of a nested repository.
+func CheckoutRepo(rootAbsPath, repoName, branchName string) error {
+	return grove.CheckoutRepo(rootAbsPath, repoName, branchName)
+}

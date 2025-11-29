@@ -136,9 +136,16 @@ func Switch(rootAbsPath, repoName, branch string) error {
 	}
 
 	// Reverse to get root -> ... -> child
+	// Format: gitgroove/repos/<root>/children/<child1>/children/<child2>/branches/<branchName>
 	var pathSegments []string
-	for i := len(ancestry) - 1; i >= 0; i-- {
-		pathSegments = append(pathSegments, ancestry[i].Name)
+
+	// Start with root
+	rootRepo := ancestry[len(ancestry)-1]
+	pathSegments = append(pathSegments, rootRepo.Name)
+
+	// Append children recursively
+	for i := len(ancestry) - 2; i >= 0; i-- {
+		pathSegments = append(pathSegments, "children", ancestry[i].Name)
 	}
 
 	// 5. Construct fully-qualified GitGroove branch ref

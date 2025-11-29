@@ -315,15 +315,19 @@ func rebuildDerivedBranches(rootAbsPath, newTip string) error {
 			current = parent
 		}
 
-		// Reverse ancestry to get root -> ... -> child
-		// And build branch name parts
+		// Construct branch name
+		// gitgroove/repos/<root>/children/<child1>/children/<child2>/branches/main
 		var pathSegments []string
-		for i := len(ancestry) - 1; i >= 0; i-- {
-			pathSegments = append(pathSegments, ancestry[i].Name)
+
+		// Start with root
+		rootRepo := ancestry[len(ancestry)-1]
+		pathSegments = append(pathSegments, rootRepo.Name)
+
+		// Append children recursively
+		for i := len(ancestry) - 2; i >= 0; i-- {
+			pathSegments = append(pathSegments, "children", ancestry[i].Name)
 		}
 
-		// Construct branch name
-		// gitgroove/repos/<p1>/<p2>/.../<child>/branches/main
 		branchName := fmt.Sprintf("refs/heads/gitgroove/repos/%s/branches/%s", strings.Join(pathSegments, "/"), model.DefaultRepoBranch)
 
 		// Update the branch ref
