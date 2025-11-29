@@ -1,19 +1,20 @@
-package status
+package doctor
 
 import (
 	"fmt"
+	"strings"
 
 	gitUtil "github.com/kuchuk-borom-debbarma/GitGrove/core/internal/util/git"
 )
 
-type BasicStatus struct {
+type BasicDoctor struct {
 	RootPath      string
 	CurrentBranch string
 	IsClean       bool
 	SystemCommit  string
 }
 
-func GetBasicStatus(rootAbsPath string) (*BasicStatus, error) {
+func GetBasicDoctor(rootAbsPath string) (*BasicDoctor, error) {
 	if !gitUtil.IsInsideGitRepo(rootAbsPath) {
 		return nil, fmt.Errorf("not a git repository: %s", rootAbsPath)
 	}
@@ -34,9 +35,9 @@ func GetBasicStatus(rootAbsPath string) (*BasicStatus, error) {
 		systemCommit = "not initialized"
 	}
 
-	return &BasicStatus{
+	return &BasicDoctor{
 		RootPath:      rootAbsPath,
-		CurrentBranch: branch,
+		CurrentBranch: strings.TrimSpace(branch), // Changed from 'branch' to 'strings.TrimSpace(branch)' and fixed variable name
 		IsClean:       isClean,
 		SystemCommit:  systemCommit,
 	}, nil
