@@ -114,38 +114,10 @@ func Switch(rootAbsPath, repoName, branch string) error {
 		return fmt.Errorf("failed to load repos from system branch: %w", err)
 	}
 
-	// 4. Resolve ancestry chain
-	targetRepo, ok := repos[repoName]
+	// 4. Validate repo exists
+	_, ok := repos[repoName]
 	if !ok {
 		return fmt.Errorf("repo '%s' not found in metadata", repoName)
-	}
-
-	// Build ancestry: child -> parent -> ... -> root
-	var ancestry []model.Repo
-	current := targetRepo
-	for {
-		ancestry = append(ancestry, current)
-		if current.Parent == "" {
-			break
-		}
-		parent, ok := repos[current.Parent]
-		if !ok {
-			return fmt.Errorf("broken ancestry: parent '%s' of '%s' missing", current.Parent, current.Name)
-		}
-		current = parent
-	}
-
-	// Reverse to get root -> ... -> child
-	// Format: gitgroove/repos/<root>/children/<child1>/children/<child2>/branches/<branchName>
-	var pathSegments []string
-
-	// Start with root
-	rootRepo := ancestry[len(ancestry)-1]
-	pathSegments = append(pathSegments, rootRepo.Name)
-
-	// Append children recursively
-	for i := len(ancestry) - 2; i >= 0; i-- {
-		pathSegments = append(pathSegments, "children", ancestry[i].Name)
 	}
 
 	// 5. Construct fully-qualified GitGroove branch ref
@@ -155,8 +127,8 @@ func Switch(rootAbsPath, repoName, branch string) error {
 		targetBranchName = model.DefaultRepoBranch
 	}
 
-	// refs/heads/gitgroove/repos/<path>/branches/<branchName>
-	fullBranchRef := fmt.Sprintf("refs/heads/gitgroove/repos/%s/branches/%s", strings.Join(pathSegments, "/"), targetBranchName)
+	// New simplified branch naming: refs/heads/gitgroove/repos/<repoName>/branches/<branchName>
+	fullBranchRef := RepoBranchRef(repoName, targetBranchName)
 
 	// 6. Validate branch exists
 	if !gitUtil.RefExists(rootAbsPath, fullBranchRef) {

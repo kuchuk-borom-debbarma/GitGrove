@@ -225,3 +225,18 @@ func CreateBranch(repoPath, branch, startPoint string) error {
 func RunGit(repoPath string, args ...string) (string, error) {
 	return runGit(repoPath, args...)
 }
+
+// CommitTree creates a commit from a tree object.
+func CommitTree(repoPath, treeHash, message string, parents ...string) (string, error) {
+	args := []string{"commit-tree", treeHash, "-m", message}
+	for _, p := range parents {
+		args = append(args, "-p", p)
+	}
+	return runGit(repoPath, args...)
+}
+
+// GetEmptyTreeHash returns the hash of an empty tree.
+func GetEmptyTreeHash(repoPath string) (string, error) {
+	// The empty tree hash is a constant in git: 4b825dc642cb6eb9a060e54bf8d69288fbee4904
+	return "4b825dc642cb6eb9a060e54bf8d69288fbee4904", nil
+}

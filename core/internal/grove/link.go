@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/kuchuk-borom-debbarma/GitGrove/core/internal/grove/model"
 	fileUtil "github.com/kuchuk-borom-debbarma/GitGrove/core/internal/util/file"
@@ -75,9 +74,10 @@ func Link(rootAbsPath string, relationships map[string]string) error {
 	}
 
 	// 8. Build derived branches.
-	if err := rebuildDerivedBranches(rootAbsPath, newTip); err != nil {
-		return err
-	}
+	// REMOVED: We no longer build derived branches. Repo branches are patch-based and only contain user commits.
+	// if err := rebuildDerivedBranches(rootAbsPath, newTip); err != nil {
+	// 	return err
+	// }
 
 	log.Info().Msg("Successfully linked repositories")
 	return nil
@@ -141,61 +141,6 @@ func applyRelationships(rootAbsPath, oldTip string, relationships map[string]str
 		return "", fmt.Errorf("failed to get new commit hash: %w", err)
 	}
 	return newTip, nil
-}
-
-func rebuildDerivedBranches(rootAbsPath, newTip string) error {
-	// Reload repos from the new system state to get the complete picture including new links
-	allRepos, err := loadExistingRepos(rootAbsPath, newTip)
-	if err != nil {
-		return fmt.Errorf("failed to reload repos from new tip: %w", err)
-	}
-
-	// For now, we use the project HEAD as the content for all branches.
-	// TODO: In the future, construct an isolated repo tree containing only the ancestry paths.
-	projectHead, err := gitUtil.GetHeadCommit(rootAbsPath)
-	if err != nil {
-		return fmt.Errorf("failed to get project HEAD: %w", err)
-	}
-
-	for _, repo := range allRepos {
-		// Build ancestry: child -> parent -> ... -> root
-		var ancestry []model.Repo
-		current := repo
-		for {
-			ancestry = append(ancestry, current)
-			if current.Parent == "" {
-				break
-			}
-			parent, ok := allRepos[current.Parent]
-			if !ok {
-				// This implies a broken link in the committed metadata, which shouldn't happen if validation works.
-				log.Warn().Msgf("Repo %s has missing parent %s, skipping branch build", current.Name, current.Parent)
-				break
-			}
-			current = parent
-		}
-
-		// Construct branch name
-		// gitgroove/repos/<root>/children/<child1>/children/<child2>/branches/main
-		var pathSegments []string
-
-		// Start with root
-		rootRepo := ancestry[len(ancestry)-1]
-		pathSegments = append(pathSegments, rootRepo.Name)
-
-		// Append children recursively
-		for i := len(ancestry) - 2; i >= 0; i-- {
-			pathSegments = append(pathSegments, "children", ancestry[i].Name)
-		}
-
-		branchName := fmt.Sprintf("refs/heads/gitgroove/repos/%s/branches/%s", strings.Join(pathSegments, "/"), model.DefaultRepoBranch)
-
-		// Update the branch ref
-		if err := gitUtil.SetRef(rootAbsPath, branchName, projectHead); err != nil {
-			return fmt.Errorf("failed to update branch ref %s: %w", branchName, err)
-		}
-	}
-	return nil
 }
 
 func validateRelationships(root string, relationships map[string]string, existingRepos map[string]model.Repo) error {

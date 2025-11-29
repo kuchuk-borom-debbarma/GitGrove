@@ -2,9 +2,7 @@ package grove
 
 import (
 	"fmt"
-	"strings"
 
-	"github.com/kuchuk-borom-debbarma/GitGrove/core/internal/grove/model"
 	gitUtil "github.com/kuchuk-borom-debbarma/GitGrove/core/internal/util/git"
 	"github.com/rs/zerolog/log"
 )
@@ -32,50 +30,23 @@ func CheckoutRepo(rootAbsPath, repoName, branchName string) error {
 	}
 
 	// 4. Find target repo
-	targetRepo, ok := repos[repoName]
+	_, ok := repos[repoName]
 	if !ok {
 		return fmt.Errorf("repo '%s' not found in metadata", repoName)
 	}
 
-	// 5. Build ancestry chain: child -> parent -> ... -> root
-	var ancestry []model.Repo
-	current := targetRepo
-	for {
-		ancestry = append(ancestry, current)
-		if current.Parent == "" {
-			break
-		}
-		parent, ok := repos[current.Parent]
-		if !ok {
-			return fmt.Errorf("broken ancestry: parent '%s' of '%s' missing", current.Parent, current.Name)
-		}
-		current = parent
-	}
+	// 5. Construct branch ref path
+	// New simplified branch naming: refs/heads/gitgroove/repos/<repoName>/branches/<branchName>
+	fullRefPath := RepoBranchRef(repoName, branchName)
 
-	// 6. Construct branch ref path
-	// Reverse ancestry to get root -> ... -> child
-	// Format: gitgroove/repos/<root>/children/<child1>/children/<child2>/branches/<branchName>
-	var pathSegments []string
-
-	// Start with root
-	rootRepo := ancestry[len(ancestry)-1]
-	pathSegments = append(pathSegments, rootRepo.Name)
-
-	// Append children recursively
-	for i := len(ancestry) - 2; i >= 0; i-- {
-		pathSegments = append(pathSegments, "children", ancestry[i].Name)
-	}
-
-	fullRefPath := fmt.Sprintf("refs/heads/gitgroove/repos/%s/branches/%s", strings.Join(pathSegments, "/"), branchName)
-
-	// 7. Validate branch exists
+	// 6. Validate branch exists
 	if !gitUtil.RefExists(rootAbsPath, fullRefPath) {
 		return fmt.Errorf("target branch '%s' does not exist", fullRefPath)
 	}
 
-	// 8. Checkout the branch
+	// 7. Checkout the branch
 	// We use the short name (without refs/heads/) to attach to the branch
-	shortBranchName := strings.TrimPrefix(fullRefPath, "refs/heads/")
+	shortBranchName := RepoBranchShortFromRef(fullRefPath)
 	log.Info().Msgf("Switching to %s", shortBranchName)
 	if err := gitUtil.Checkout(rootAbsPath, shortBranchName); err != nil {
 		return fmt.Errorf("failed to checkout target branch: %w", err)

@@ -79,17 +79,15 @@ func TestLink(t *testing.T) {
 		t.Errorf("expected child entry for backend in shared, got error: %v", err)
 	}
 
-	// Verify derived branches
-	// backend: refs/heads/gitgroove/repos/shared/backend/branches/main
-	// backend: refs/heads/gitgroove/repos/shared/children/backend/branches/main
-	backendBranch := "refs/heads/gitgroove/repos/shared/children/backend/branches/main"
+	// Verify repo branches exist (created by Register)
+	// backend: refs/heads/gitgroove/repos/backend/branches/main
+	backendBranch := "refs/heads/gitgroove/repos/backend/branches/main"
 	if exists, _ := gitUtil.HasBranch(temp, backendBranch); !exists {
 		t.Errorf("expected branch %s to exist", backendBranch)
 	}
 
-	// frontend: refs/heads/gitgroove/repos/shared/frontend/branches/main
-	// frontend: refs/heads/gitgroove/repos/shared/children/frontend/branches/main
-	frontendBranch := "refs/heads/gitgroove/repos/shared/children/frontend/branches/main"
+	// frontend: refs/heads/gitgroove/repos/frontend/branches/main
+	frontendBranch := "refs/heads/gitgroove/repos/frontend/branches/main"
 	if exists, _ := gitUtil.HasBranch(temp, frontendBranch); !exists {
 		t.Errorf("expected branch %s to exist", frontendBranch)
 	}

@@ -54,3 +54,8 @@ func Stage(rootAbsPath string, files []string) error {
 func Commit(rootAbsPath, message string) error {
 	return grove.Commit(rootAbsPath, message)
 }
+
+// Move relocates a registered repository to a new path within the project.
+func Move(rootAbsPath, repoName, newRelPath string) error {
+	return grove.Move(rootAbsPath, repoName, newRelPath)
+}

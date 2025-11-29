@@ -83,9 +83,35 @@ func Register(rootAbsPath string, repos map[string]string) error {
 			log.Warn().Msgf("Failed to write marker file at %s: %v", markerPath, err)
 			// We don't fail the registration because the metadata is already committed.
 		}
+
+		// 9. Create orphan branch for the repo if it doesn't exist
+		// Branch: refs/heads/gitgroove/repos/<name>/branches/main
+		branchRef := RepoBranchRef(name, model.DefaultRepoBranch)
+		if !gitUtil.RefExists(rootAbsPath, branchRef) {
+			log.Info().Msgf("Creating orphan branch %s", branchRef)
+			// Create an empty orphan branch.
+			// We can do this by creating a commit with no parents and an empty tree?
+			// Or just using `git checkout --orphan` in a temp worktree?
+			// Easiest is `git commit-tree` with empty tree and no parent.
+			emptyTreeHash, err := gitUtil.GetEmptyTreeHash(rootAbsPath)
+			if err != nil {
+				log.Warn().Msgf("Failed to get empty tree hash: %v", err)
+				continue
+			}
+
+			commitHash, err := gitUtil.CommitTree(rootAbsPath, emptyTreeHash, "Initial empty repo commit")
+			if err != nil {
+				log.Warn().Msgf("Failed to create orphan branch %s: %v", branchRef, err)
+			} else {
+				if err := gitUtil.SetRef(rootAbsPath, branchRef, commitHash); err != nil {
+					log.Warn().Msgf("Failed to set ref %s: %v", branchRef, err)
+				}
+			}
+		}
 	}
 
 	log.Info().Msg("Successfully registered repositories")
+	log.Info().Msg("Wrote repo marker files; please commit them if you need them visible on your working branches")
 	return nil
 }
 
@@ -113,7 +139,7 @@ func createRegisterCommit(rootAbsPath, oldTip string, repos map[string]string) (
 	}
 	defer gitUtil.WorktreeRemove(rootAbsPath, tempDir) // cleanup worktree
 
-	// Write new repos to .gg/repos/<name>/path
+	// Write new repos to .gg/repos/<name>/path AND write marker files
 	for name, path := range repos {
 		repoDir := filepath.Join(tempDir, ".gg", "repos", name)
 		if err := os.MkdirAll(repoDir, 0755); err != nil {
@@ -132,6 +158,17 @@ func createRegisterCommit(rootAbsPath, oldTip string, repos map[string]string) (
 		if err := os.WriteFile(pathFile, []byte(cleanPath), 0644); err != nil {
 			return "", fmt.Errorf("failed to write path for repo %s: %w", name, err)
 		}
+
+		// Write marker file in the temp worktree so it's included in the system commit
+		// We need to create the repo directory structure in the temp worktree
+		markerRelPath := filepath.Join(cleanPath, ".gitgroverepo")
+		markerAbsPath := filepath.Join(tempDir, markerRelPath)
+		if err := os.MkdirAll(filepath.Dir(markerAbsPath), 0755); err != nil {
+			return "", fmt.Errorf("failed to create repo dir in temp worktree for %s: %w", name, err)
+		}
+		if err := os.WriteFile(markerAbsPath, []byte(name), 0644); err != nil {
+			return "", fmt.Errorf("failed to write marker in temp worktree for %s: %w", name, err)
+		}
 	}
 
 	// 6. Create new commit
@@ -139,6 +176,17 @@ func createRegisterCommit(rootAbsPath, oldTip string, repos map[string]string) (
 	if err := gitUtil.StagePath(tempDir, ".gg/repos"); err != nil {
 		return "", fmt.Errorf("failed to stage .gg/repos: %w", err)
 	}
+	// Also stage the marker files (we can just stage the whole tempDir since it's a fresh worktree)
+	// But to be safe/precise, let's stage the repo paths.
+	// Actually, staging "." in tempDir is safe because it only contains what we wrote + checked out files.
+	// But we only want to commit the new markers and .gg changes.
+	// Since we are in a detached worktree of gitgroove/system, it only has .gg/ by default.
+	// We added repo dirs.
+	// Staging "." is fine.
+	if err := gitUtil.StagePath(tempDir, "."); err != nil {
+		return "", fmt.Errorf("failed to stage changes: %w", err)
+	}
+
 	if err := gitUtil.Commit(tempDir, fmt.Sprintf("Register %d new repositories", len(repos))); err != nil {
 		return "", fmt.Errorf("failed to commit metadata changes: %w", err)
 	}

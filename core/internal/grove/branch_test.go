@@ -64,8 +64,8 @@ func TestCreateRepoBranch(t *testing.T) {
 	}
 
 	// Verify the branch ref exists
-	// Expected path: gitgroove/repos/grandparent/children/parent/children/child/branches/feature/login
-	expectedRef := "refs/heads/gitgroove/repos/grandparent/children/parent/children/child/branches/feature/login"
+	// Expected path: gitgroove/repos/child/branches/feature/login
+	expectedRef := "refs/heads/gitgroove/repos/child/branches/feature/login"
 
 	exists, err := gitUtil.HasBranch(temp, expectedRef)
 	if err != nil {

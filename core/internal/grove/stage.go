@@ -28,7 +28,7 @@ func Stage(rootAbsPath string, files []string) error {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
 
-	// Expected format: gitgroove/repos/<hierarchy>/branches/<branchName>
+	// Expected format: gitgroove/repos/<repoName>/branches/<branchName>
 	targetRepoName, err := ParseRepoFromBranch(currentBranch)
 	if err != nil {
 		return err
@@ -62,7 +62,7 @@ func Stage(rootAbsPath string, files []string) error {
 		// We can pass multiple files to git add
 		// gitUtil.StagePath currently takes one file. We need to use runGit directly or update StagePath.
 		// Let's use runGit directly here for efficiency.
-		args := append([]string{"add", "-f", "--"}, filesToStage...)
+		args := append([]string{"add", "--"}, filesToStage...)
 		if _, err := gitUtil.RunGit(rootAbsPath, args...); err != nil {
 			return fmt.Errorf("failed to stage files: %w", err)
 		}
