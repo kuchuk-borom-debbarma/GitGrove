@@ -44,3 +44,8 @@ func CreateRepoBranch(rootAbsPath, repoName, branchName string) error {
 func CheckoutRepo(rootAbsPath, repoName, branchName string) error {
 	return grove.CheckoutRepo(rootAbsPath, repoName, branchName)
 }
+
+// Stage adds file contents to the staging area with GitGrove-specific validations.
+func Stage(rootAbsPath string, files []string) error {
+	return grove.Stage(rootAbsPath, files)
+}

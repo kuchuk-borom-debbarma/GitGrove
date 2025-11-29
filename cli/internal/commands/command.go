@@ -28,14 +28,16 @@ func GetCommand(name string) (Command, bool) {
 
 type CommandRunner struct{}
 
-func (CommandRunner) Run(command Command, args map[string]any) {
+func (CommandRunner) Run(command Command, args map[string]any) error {
 	err := command.ValidateArgs(args)
 	if err != nil {
 		fmt.Println("[ERROR]: Invalid Arguments ", err)
-		return
+		return err
 	}
 	err = command.Execute(args)
 	if err != nil {
 		fmt.Println("[ERROR]: Execution failed:", err)
+		return err
 	}
+	return nil
 }
