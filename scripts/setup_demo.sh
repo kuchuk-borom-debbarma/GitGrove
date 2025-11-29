@@ -70,33 +70,27 @@ echo "Linking repositories..."
 ./gitgrove link --child service-b --parent backend
 ./gitgrove link --child web-app --parent frontend
 
-# Interactive Switch Demo
+# Branch and Checkout Demo
 echo ""
 echo "========================================"
-echo "       Interactive Switch Demo"
+echo "       Branch and Checkout Demo"
 echo "========================================"
 echo ""
 
-# Hardcoded list of repos for demo
-echo "Available Repositories:"
-echo "1. backend"
-echo "2. frontend"
-echo "3. service-a"
-echo "4. service-b"
-echo "5. web-app"
+echo "Creating a new branch 'feature/demo' for 'service-a'..."
+./gitgrove branch service-a feature/demo
 
-read -p "Enter the name of the repo you want to switch to: " REPO_NAME
+echo "Switching to 'service-a' on branch 'feature/demo'..."
+./gitgrove checkout service-a feature/demo
 
-if [ -z "$REPO_NAME" ]; then
-  echo "Repo name cannot be empty."
-  exit 1
-fi
+echo "Current branch:"
+git branch --show-current
 
-read -p "Enter the branch name (default: main): " BRANCH_NAME
-BRANCH_NAME=${BRANCH_NAME:-main}
+echo "Switching back to 'service-a' on branch 'main'..."
+./gitgrove checkout service-a main
 
-echo ""
-echo "Running: ./gitgrove switch $REPO_NAME $BRANCH_NAME"
-cd "$DEMO_DIR"
-./gitgrove switch "$REPO_NAME" "$BRANCH_NAME"
+echo "Current branch:"
+git branch --show-current
+
+echo "Demo complete!"
 
