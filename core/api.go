@@ -39,3 +39,8 @@ func Status(rootAbsPath string) (string, error) {
 func CreateRepoBranch(rootAbsPath, repoName, branchName string) error {
 	return grove.CreateRepoBranch(rootAbsPath, repoName, branchName)
 }
+
+// CheckoutRepo switches the user's working tree to a specific branch of a nested repository.
+func CheckoutRepo(rootAbsPath, repoName, branchName string) error {
+	return grove.CheckoutRepo(rootAbsPath, repoName, branchName)
+}
