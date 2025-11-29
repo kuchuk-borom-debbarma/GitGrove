@@ -1,4 +1,4 @@
-package status
+package doctor
 
 import (
 	"fmt"
@@ -15,16 +15,16 @@ type RepoState struct {
 	PathExists bool
 }
 
-type RepoStatus struct {
+type RepoDoctor struct {
 	Repos map[string]RepoState
 }
 
-func GetRepoStatus(rootAbsPath string) (*RepoStatus, error) {
+func GetRepoDoctor(rootAbsPath string) (*RepoDoctor, error) {
 	systemRef := "refs/heads/gitgroove/system"
 	oldTip, err := gitUtil.ResolveRef(rootAbsPath, systemRef)
 	if err != nil {
 		// If system branch doesn't exist, we assume no repos registered or not init
-		return &RepoStatus{Repos: map[string]RepoState{}}, nil
+		return &RepoDoctor{Repos: map[string]RepoState{}}, nil
 	}
 
 	repos, err := loadRepos(rootAbsPath, oldTip)
@@ -45,7 +45,7 @@ func GetRepoStatus(rootAbsPath string) (*RepoStatus, error) {
 		}
 	}
 
-	return &RepoStatus{Repos: repoStates}, nil
+	return &RepoDoctor{Repos: repoStates}, nil
 }
 
 // loadRepos is a helper to load repo metadata from a specific commit.

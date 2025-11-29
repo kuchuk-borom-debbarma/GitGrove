@@ -2,7 +2,7 @@ package core
 
 import (
 	"github.com/kuchuk-borom-debbarma/GitGrove/core/internal/grove"
-	"github.com/kuchuk-borom-debbarma/GitGrove/core/internal/grove/status"
+	"github.com/kuchuk-borom-debbarma/GitGrove/core/internal/grove/doctor"
 )
 
 // Init initializes GitGroove on the current Git repository.
@@ -26,13 +26,13 @@ func Switch(rootAbsPath, repoName, branch string) error {
 	return grove.Switch(rootAbsPath, repoName, branch)
 }
 
-// Status returns the current status of the GitGroove project.
-func Status(rootAbsPath string) (string, error) {
-	s, err := status.GetStatus(rootAbsPath)
+// Doctor returns the current health and status of the GitGroove project.
+func Doctor(rootAbsPath string) (string, error) {
+	d, err := doctor.GetDoctor(rootAbsPath)
 	if err != nil {
 		return "", err
 	}
-	return s.String(), nil
+	return d.String(), nil
 }
 
 // CreateRepoBranch creates a new branch for a specific nested repository.
