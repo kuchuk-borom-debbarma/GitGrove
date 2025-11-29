@@ -19,3 +19,8 @@ func Register(rootAbsPath string, repos map[string]string) error {
 func Link(rootAbsPath string, relationships map[string]string) error {
 	return grove.Link(rootAbsPath, relationships)
 }
+
+// Switch moves the user's working tree to the GitGroove branch associated with the specified repo.
+func Switch(rootAbsPath, repoName, branch string) error {
+	return grove.Switch(rootAbsPath, repoName, branch)
+}

@@ -202,3 +202,26 @@ func ResetHard(repoPath, ref string) error {
 	_, err := runGit(repoPath, "reset", "--hard", ref)
 	return err
 }
+
+// RefExists checks if a reference exists.
+func RefExists(repoPath, ref string) bool {
+	_, err := runGit(repoPath, "rev-parse", "--verify", "--quiet", ref)
+	return err == nil
+}
+
+// Init initializes a new git repository.
+func Init(repoPath string) error {
+	_, err := runGit(repoPath, "init")
+	return err
+}
+
+// CreateBranch creates a new branch pointing to the specified start point.
+func CreateBranch(repoPath, branch, startPoint string) error {
+	_, err := runGit(repoPath, "branch", branch, startPoint)
+	return err
+}
+
+// RunGit runs an arbitrary git command.
+func RunGit(repoPath string, args ...string) (string, error) {
+	return runGit(repoPath, args...)
+}

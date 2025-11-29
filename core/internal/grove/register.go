@@ -312,7 +312,8 @@ func validateNewRepos(root string, newRepos map[string]string, existing map[stri
 		}
 
 		// No nested .git
-		if fileUtil.Exists(filepath.Join(absPath, ".git")) {
+		// Exception: if absPath is the root itself, .git is expected.
+		if absPath != root && fileUtil.Exists(filepath.Join(absPath, ".git")) {
 			return fmt.Errorf("repo '%s' contains .git directory (nested git repos not allowed)", relPath)
 		}
 
