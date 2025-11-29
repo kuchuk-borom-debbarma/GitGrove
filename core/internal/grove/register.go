@@ -15,90 +15,14 @@ import (
 
 // Register records one or more repos (name → path) in the GitGroove metadata.
 //
-// High-level behavior:
+// It operates atomically against the latest committed state of the gitgroove/system branch.
+// Validated entries are appended to .gg/repos/<name>/path, a new commit is created,
+// and the gitgroove/system reference is updated.
 //
-//	Register operates strictly against the latest committed state of the gitgroove/system branch.
-//	It validates the requested repo definitions, appends validated entries to .gg/repos/<name>/path,
-//	creates a new commit (parent = current gitgroove/system tip), and atomically updates the
-//	gitgroove/system reference to that new commit.
-//
-// IMPORTANT:
-//   - Registration ONLY records repos (name + path).
-//   - Registration DOES NOT create any derived GitGroove branches.
-//   - Branch creation happens exclusively after hierarchy linking, not during registration.
-//
-// Requirements / invariants:
-//   - rootAbsPath must point to a valid Git repository already initialized with GitGroove (.gg exists).
-//   - The caller provides repos as map[name]path; `name` is the unique repo ID, `path` is the
-//     directory inside the Git repo.
-//   - All repo names must be globally unique. If any name in the batch is already registered,
-//     the entire registration step is aborted with no changes applied.
-//   - All paths must exist, be directories, and reside within the Git project root.
-//   - Repos must not contain their own .git directory.
-//   - Updating/moving an existing repo’s path is not done here—handled by a dedicated command.
-//
-// Step-by-step algorithm (safe, atomic, optimistic):
-//
-//  1. Validate environment:
-//     • Verify rootAbsPath is a Git repo with a .gg directory.
-//     • Ensure the working tree is clean (no staged/unstaged/untracked changes).
-//     • Ensure HEAD is not detached.
-//     If any check fails → abort immediately.
-//
-//  2. Read the latest gitgroove/system commit:
-//     • Resolve refs/heads/gitgroove/system to oldTip.
-//     • Optionally fetch/merge remote state if multi-writer synchronization is desired.
-//
-//  3. Load existing repo metadata from oldTip:
-//
-//  3. Load existing repo metadata from oldTip:
-//     • Stream .gg/repos/* using `git ls-tree` and `git show`.
-//     • Build minimal sets for existing names and paths.
-//     • Validation is always based on committed state, never working tree.
-//
-//  4. Validate incoming repos:
-//     • For each name→path pair:
-//     - name must be unique w.r.t. committed repos.
-//     - path must be unique and must exist in the filesystem.
-//     - path must be a directory under rootAbsPath.
-//     - path must not contain a nested .git.
-//     If any repo fails validation → abort, write nothing.
-//
-//  5. Prepare updated metadata in a temporary workspace:
-//     • Create a temporary git worktree detached at oldTip
-//     (or build tree programmatically using plumbing).
-//     • Write new repo entries to .gg/repos/<name>/path in this temporary workspace.
-//
-//  6. Create a new commit for updated metadata:
-//     • Stage updated .gg files in the temporary workspace.
-//     • Create a commit with parent = oldTip containing only the metadata changes.
-//     • Capture the new commit hash newTip.
-//
-//  7. Atomically update gitgroove/system:
-//     • Perform a conditional ref update:
-//     git update-ref refs/heads/gitgroove/system <newTip> <oldTip>
-//     This ensures correct optimistic concurrency control.
-//     • If this fails (branch moved), abort and return a retryable error.
-//     • If remote sync is required: push using --force-with-lease.
-//
-//  8. POST-COMMIT NOTE:
-//     • Registration DOES NOT trigger branch creation of gitgroove/<repoName>.
-//     • Derived branch creation is only performed after linking relationships.
-//
-//  9. Cleanup temporary workspace and return success.
-//
-// Atomicity guarantee:
-//   - If ANY validation fails or the conditional ref update fails, NOTHING is committed.
-//   - Only a fully validated, fully committed metadata change becomes visible in gitgroove/system.
-//
-// Notes:
-//   - Metadata files are append-only; no mutation of existing entries occurs here.
-//   - Moving/renaming repos requires a separate dedicated command.
-//   - Register should not modify or disturb the user's currently checked-out branch since
-//     all metadata writes occur in a detached temporary worktree or via plumbing.
-//
-// Register must be atomic: if any repo fails validation or the CAS (compare-and-swap) ref update
-// fails, no partial metadata is written and the system state remains unchanged.
+// Guarantees:
+//   - Atomic: either all repos are registered or none.
+//   - Safe: validates environment (clean state, valid git repo) and inputs (unique names/paths).
+//   - Non-destructive: does not modify user branches or working directory content (except .gitgroverepo marker).
 func Register(rootAbsPath string, repos map[string]string) error {
 	log.Info().Msgf("Attempting to register %d repos in %s", len(repos), rootAbsPath)
 
@@ -285,68 +209,75 @@ func loadExistingRepos(root, ref string) (map[string]model.Repo, error) {
 var validNameRegex = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
 
 func validateNewRepos(root string, newRepos map[string]string, existing map[string]model.Repo) error {
-	// Check for name collisions and validity
+	// 1. Check for name collisions and validity
 	for name := range newRepos {
-		if !validNameRegex.MatchString(name) {
-			return fmt.Errorf("invalid repo name '%s': must match %s", name, validNameRegex.String())
-		}
-		if _, ok := existing[name]; ok {
-			return fmt.Errorf("repo name '%s' already registered", name)
+		if err := validateRepoName(name, existing); err != nil {
+			return err
 		}
 	}
 
-	// Check for path collisions and validity
+	// 2. Check for path collisions and validity
 	existingPaths := make(map[string]bool)
 	for _, r := range existing {
 		existingPaths[r.Path] = true
 	}
 
-	for _, relPath := range newRepos {
-		// Path uniqueness
-		cleanPath := fileUtil.NormalizePath(relPath)
+	// Track paths in the current batch to detect duplicates within the batch
+	seenPaths := make(map[string]string)
 
-		if existingPaths[cleanPath] {
-			return fmt.Errorf("path '%s' already registered", relPath)
+	for name, relPath := range newRepos {
+		if err := validateRepoPath(root, name, relPath, existingPaths, seenPaths); err != nil {
+			return err
 		}
-
-		// Existence and containment
-		absPath := filepath.Join(root, cleanPath)
-
-		// Verify path is inside root
-		rel, err := filepath.Rel(root, absPath)
-		if err != nil || strings.HasPrefix(rel, "..") || strings.HasPrefix(rel, "/") {
-			return fmt.Errorf("path '%s' escapes project root", relPath)
-		}
-
-		info, err := os.Stat(absPath)
-		if err != nil {
-			return fmt.Errorf("path '%s' does not exist", relPath)
-		}
-		if !info.IsDir() {
-			return fmt.Errorf("path '%s' is not a directory", relPath)
-		}
-
-		// No nested .git
-		// Exception: if absPath is the root itself, .git is expected.
-		if absPath != root && fileUtil.Exists(filepath.Join(absPath, ".git")) {
-			return fmt.Errorf("repo '%s' contains .git directory (nested git repos not allowed)", relPath)
-		}
-
-		// Check for duplicates within the batch
-		// (This is implicitly handled by map keys for names, but paths could be dupes in the batch)
-		// We'll check batch path uniqueness separately if needed, but map[string]string allows unique names only.
-		// Multiple names pointing to same path?
-		// Let's check that too.
 	}
 
-	// Check for duplicate paths in the input batch
-	seenPaths := make(map[string]string)
-	for name, path := range newRepos {
-		cleanPath := fileUtil.NormalizePath(path)
-		if otherName, ok := seenPaths[cleanPath]; ok {
-			return fmt.Errorf("duplicate path '%s' used by '%s' and '%s'", path, otherName, name)
-		}
-		seenPaths[cleanPath] = name
+	return nil
+}
+
+func validateRepoName(name string, existing map[string]model.Repo) error {
+	if !validNameRegex.MatchString(name) {
+		return fmt.Errorf("invalid repo name '%s': must match %s", name, validNameRegex.String())
+	}
+	if _, ok := existing[name]; ok {
+		return fmt.Errorf("repo name '%s' already registered", name)
+	}
+	return nil
+}
+
+func validateRepoPath(root, name, relPath string, existingPaths map[string]bool, seenPaths map[string]string) error {
+	// Path uniqueness
+	cleanPath := fileUtil.NormalizePath(relPath)
+
+	if existingPaths[cleanPath] {
+		return fmt.Errorf("path '%s' already registered", relPath)
+	}
+
+	if otherName, ok := seenPaths[cleanPath]; ok {
+		return fmt.Errorf("duplicate path '%s' used by '%s' and '%s'", relPath, otherName, name)
+	}
+	seenPaths[cleanPath] = name
+
+	// Existence and containment
+	absPath := filepath.Join(root, cleanPath)
+
+	// Verify path is inside root
+	rel, err := filepath.Rel(root, absPath)
+	if err != nil || strings.HasPrefix(rel, "..") || strings.HasPrefix(rel, "/") {
+		return fmt.Errorf("path '%s' escapes project root", relPath)
+	}
+
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return fmt.Errorf("path '%s' does not exist", relPath)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("path '%s' is not a directory", relPath)
+	}
+
+	// No nested .git
+	// Exception: if absPath is the root itself, .git is expected.
+	if absPath != root && fileUtil.Exists(filepath.Join(absPath, ".git")) {
+		return fmt.Errorf("repo '%s' contains .git directory (nested git repos not allowed)", relPath)
 	}
 
 	return nil

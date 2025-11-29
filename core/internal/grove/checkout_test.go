@@ -40,6 +40,11 @@ func TestCheckoutRepo(t *testing.T) {
 		t.Fatalf("Register failed: %v", err)
 	}
 
+	// Register creates .gitgroverepo files which are untracked.
+	// We need to commit them to have a clean state for Link.
+	execGit(t, temp, "add", ".")
+	execGit(t, temp, "commit", "-m", "Add .gitgroverepo markers")
+
 	// Link repos: parent -> child
 	links := map[string]string{
 		"child": "parent",

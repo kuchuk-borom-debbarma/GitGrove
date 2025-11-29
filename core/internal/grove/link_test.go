@@ -45,6 +45,11 @@ func TestLink(t *testing.T) {
 		t.Fatalf("Register failed: %v", err)
 	}
 
+	// Register creates .gitgroverepo files which are untracked.
+	// We need to commit them to have a clean state for Link.
+	execGit(t, temp, "add", ".")
+	execGit(t, temp, "commit", "-m", "Add .gitgroverepo markers")
+
 	// Test Case 1: Successful Linking
 	// Hierarchy:
 	// shared -> backend
@@ -76,13 +81,15 @@ func TestLink(t *testing.T) {
 
 	// Verify derived branches
 	// backend: refs/heads/gitgroove/repos/shared/backend/branches/main
-	backendBranch := "refs/heads/gitgroove/repos/shared/backend/branches/main"
+	// backend: refs/heads/gitgroove/repos/shared/children/backend/branches/main
+	backendBranch := "refs/heads/gitgroove/repos/shared/children/backend/branches/main"
 	if exists, _ := gitUtil.HasBranch(temp, backendBranch); !exists {
 		t.Errorf("expected branch %s to exist", backendBranch)
 	}
 
 	// frontend: refs/heads/gitgroove/repos/shared/frontend/branches/main
-	frontendBranch := "refs/heads/gitgroove/repos/shared/frontend/branches/main"
+	// frontend: refs/heads/gitgroove/repos/shared/children/frontend/branches/main
+	frontendBranch := "refs/heads/gitgroove/repos/shared/children/frontend/branches/main"
 	if exists, _ := gitUtil.HasBranch(temp, frontendBranch); !exists {
 		t.Errorf("expected branch %s to exist", frontendBranch)
 	}
