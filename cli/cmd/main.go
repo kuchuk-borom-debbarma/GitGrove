@@ -23,5 +23,7 @@ func main() {
 
 	args := arg.ParseArg(os.Args[2:])
 	runner := commands.CommandRunner{}
-	runner.Run(command, args)
+	if err := runner.Run(command, args); err != nil {
+		os.Exit(1)
+	}
 }

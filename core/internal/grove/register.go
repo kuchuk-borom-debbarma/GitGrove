@@ -146,6 +146,21 @@ func Register(rootAbsPath string, repos map[string]string) error {
 		}
 	}
 
+	// 8. Create .gitgroverepo marker in the registered directories
+	// This is critical for the stage command to detect nested repos.
+	for name, path := range repos {
+		// path is relative to rootAbsPath
+		absPath := filepath.Join(rootAbsPath, path)
+		markerPath := filepath.Join(absPath, ".gitgroverepo")
+
+		// Always overwrite or create the marker with the repo name
+		// This ensures identity is correct even if re-registering or if file was empty
+		if err := fileUtil.WriteTextFile(markerPath, name); err != nil {
+			log.Warn().Msgf("Failed to write marker file at %s: %v", markerPath, err)
+			// We don't fail the registration because the metadata is already committed.
+		}
+	}
+
 	log.Info().Msg("Successfully registered repositories")
 	return nil
 }
