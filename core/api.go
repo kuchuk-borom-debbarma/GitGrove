@@ -2,6 +2,7 @@ package core
 
 import (
 	"github.com/kuchuk-borom-debbarma/GitGrove/core/internal/grove"
+	"github.com/kuchuk-borom-debbarma/GitGrove/core/internal/grove/status"
 )
 
 // Init initializes GitGroove on the current Git repository.
@@ -23,4 +24,13 @@ func Link(rootAbsPath string, relationships map[string]string) error {
 // Switch moves the user's working tree to the GitGroove branch associated with the specified repo.
 func Switch(rootAbsPath, repoName, branch string) error {
 	return grove.Switch(rootAbsPath, repoName, branch)
+}
+
+// Status returns the current status of the GitGroove project.
+func Status(rootAbsPath string) (string, error) {
+	s, err := status.GetStatus(rootAbsPath)
+	if err != nil {
+		return "", err
+	}
+	return s.String(), nil
 }
