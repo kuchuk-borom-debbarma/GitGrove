@@ -2,14 +2,21 @@ package status
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/kuchuk-borom-debbarma/GitGrove/core/internal/grove/model"
 	gitUtil "github.com/kuchuk-borom-debbarma/GitGrove/core/internal/util/git"
 )
 
+type RepoState struct {
+	Repo       model.Repo
+	PathExists bool
+}
+
 type RepoStatus struct {
-	Repos map[string]model.Repo
+	Repos map[string]RepoState
 }
 
 func GetRepoStatus(rootAbsPath string) (*RepoStatus, error) {
@@ -17,7 +24,7 @@ func GetRepoStatus(rootAbsPath string) (*RepoStatus, error) {
 	oldTip, err := gitUtil.ResolveRef(rootAbsPath, systemRef)
 	if err != nil {
 		// If system branch doesn't exist, we assume no repos registered or not init
-		return &RepoStatus{Repos: map[string]model.Repo{}}, nil
+		return &RepoStatus{Repos: map[string]RepoState{}}, nil
 	}
 
 	repos, err := loadRepos(rootAbsPath, oldTip)
@@ -25,11 +32,23 @@ func GetRepoStatus(rootAbsPath string) (*RepoStatus, error) {
 		return nil, err
 	}
 
-	return &RepoStatus{Repos: repos}, nil
+	repoStates := make(map[string]RepoState)
+	for name, repo := range repos {
+		absPath := filepath.Join(rootAbsPath, repo.Path)
+		exists := false
+		if info, err := os.Stat(absPath); err == nil && info.IsDir() {
+			exists = true
+		}
+		repoStates[name] = RepoState{
+			Repo:       repo,
+			PathExists: exists,
+		}
+	}
+
+	return &RepoStatus{Repos: repoStates}, nil
 }
 
 // loadRepos is a helper to load repo metadata from a specific commit.
-// This duplicates logic from register.go to keep status independent as requested.
 func loadRepos(root, ref string) (map[string]model.Repo, error) {
 	entries, err := gitUtil.ListTree(root, ref, ".gg/repos")
 	if err != nil {
