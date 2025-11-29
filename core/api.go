@@ -49,3 +49,8 @@ func CheckoutRepo(rootAbsPath, repoName, branchName string) error {
 func Stage(rootAbsPath string, files []string) error {
 	return grove.Stage(rootAbsPath, files)
 }
+
+// Commit performs a commit with strict GitGrove validations.
+func Commit(rootAbsPath, message string) error {
+	return grove.Commit(rootAbsPath, message)
+}

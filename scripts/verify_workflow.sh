@@ -24,6 +24,9 @@ echo "Root repo initialized."
 echo "=== 2. Register Repos ==="
 # Register root repo
 $CLI register --name root --path .
+echo "child/" > .gitignore
+git add .gitignore
+git commit -m "Ignore child repo"
 git add .gitgroverepo
 git commit -m "Add root marker"
 
@@ -33,11 +36,11 @@ mkdir child
 # Actually, Register checks clean state. So we must have clean state BEFORE calling it.
 # But we need the directory 'child' to exist.
 touch child/.gitkeep
-git add child
+git add -f child
 git commit -m "Add child dir"
 
 $CLI register --name child --path child
-git add child/.gitgroverepo
+git add -f child/.gitgroverepo
 git commit -m "Add child marker"
 
 echo "=== 3. Link Repos ==="
@@ -89,5 +92,46 @@ if $CLI stage .gg/repos/root/path; then
 else
     echo "PASS: Correctly rejected .gg file"
 fi
+
+echo "=== 6. Test Commit in Root Branch ==="
+# Commit the staged root_file
+$CLI commit -m "Commit root file"
+echo "PASS: Committed root_file"
+
+echo "=== 7. Test Commit with Invalid Staged File (Manual Add) ==="
+# Manually stage a file that violates rules (e.g. nested repo file)
+# Note: git add -f allows adding ignored files, but we want to test our commit validation.
+# We are in root repo. Add child file manually.
+touch child/manual_file
+git add -f child/manual_file
+
+if $CLI commit -m "Commit invalid file"; then
+    echo "FAIL: Should not have committed invalid file"
+    exit 1
+else
+    echo "PASS: Correctly rejected commit with invalid staged file"
+fi
+git restore --staged child/manual_file # Cleanup staging
+rm child/manual_file # Cleanup file
+
+echo "Debug: Checking status before switch"
+git status
+
+echo "=== 8. Test Commit with Identity Mismatch (Tampering) ==="
+# Switch to child
+$CLI switch child
+# Tamper with marker
+echo "fake-identity" > child/.gitgroverepo
+touch child/valid_file
+$CLI stage child/valid_file
+
+if $CLI commit -m "Commit with bad marker"; then
+    echo "FAIL: Should not have committed with bad marker"
+    exit 1
+else
+    echo "PASS: Correctly rejected commit with identity mismatch"
+fi
+# Restore marker
+echo "child" > child/.gitgroverepo
 
 echo "All tests passed!"
