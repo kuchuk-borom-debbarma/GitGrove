@@ -82,4 +82,12 @@ else
     echo "PASS: Correctly rejected file in nested repo"
 fi
 
+echo "Attempting to stage .gg/ file..."
+if $CLI stage .gg/repos/root/path; then
+    echo "FAIL: Should not have staged .gg file"
+    exit 1
+else
+    echo "PASS: Correctly rejected .gg file"
+fi
+
 echo "All tests passed!"

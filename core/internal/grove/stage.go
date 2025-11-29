@@ -134,6 +134,12 @@ func Stage(rootAbsPath string, files []string) error {
 
 		// Collect relative path for batch staging
 		relToRoot, _ := filepath.Rel(rootAbsPath, absFile)
+
+		// Forbid staging .gg/ files
+		if strings.HasPrefix(relToRoot, ".gg/") || relToRoot == ".gg" {
+			return fmt.Errorf("cannot stage GitGroove metadata: %s", relToRoot)
+		}
+
 		filesToStage = append(filesToStage, relToRoot)
 	}
 
