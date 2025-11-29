@@ -3,8 +3,13 @@ package git
 import (
 	"bytes"
 	"errors"
+	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
+
+	fileUtil "github.com/kuchuk-borom-debbarma/GitGrove/core/internal/util/file"
 )
 
 // Internal helper to run git
@@ -239,4 +244,51 @@ func CommitTree(repoPath, treeHash, message string, parents ...string) (string, 
 func GetEmptyTreeHash(repoPath string) (string, error) {
 	// The empty tree hash is a constant in git: 4b825dc642cb6eb9a060e54bf8d69288fbee4904
 	return "4b825dc642cb6eb9a060e54bf8d69288fbee4904", nil
+}
+
+// CreateTreeWithFile creates a git tree object containing a single file with the given content.
+// It uses a temporary index file to avoid disturbing the user's index.
+func CreateTreeWithFile(repoPath, relPath, content string) (string, error) {
+	// 1. Create blob
+	blobHash, err := CreateBlob(repoPath, content)
+	if err != nil {
+		return "", fmt.Errorf("failed to create blob: %w", err)
+	}
+
+	// 2. Add to temp index
+	// We use a unique temp file for the index
+	tempIndex := filepath.Join(repoPath, ".git", "index.temp."+fileUtil.RandomString(8))
+	defer os.Remove(tempIndex)
+
+	// git update-index --add --cacheinfo 100644 <blob> <path>
+	// We must set GIT_INDEX_FILE environment variable
+	cmd := exec.Command("git", "update-index", "--add", "--cacheinfo", "100644", blobHash, relPath)
+	cmd.Dir = repoPath
+	cmd.Env = append(os.Environ(), "GIT_INDEX_FILE="+tempIndex)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("failed to update temp index: %v, output: %s", err, out)
+	}
+
+	// 3. Write tree
+	cmd = exec.Command("git", "write-tree")
+	cmd.Dir = repoPath
+	cmd.Env = append(os.Environ(), "GIT_INDEX_FILE="+tempIndex)
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to write tree: %v", err)
+	}
+
+	return strings.TrimSpace(string(out)), nil
+}
+
+// CreateBlob creates a git blob object from a string and returns its hash.
+func CreateBlob(repoPath, content string) (string, error) {
+	cmd := exec.Command("git", "hash-object", "-w", "--stdin")
+	cmd.Dir = repoPath
+	cmd.Stdin = strings.NewReader(content)
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
 }

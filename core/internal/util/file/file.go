@@ -3,9 +3,11 @@ package file
 import (
 	"encoding/json"
 	"errors"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // NormalizePath cleans a path and converts "\" → "/".
@@ -129,4 +131,15 @@ func AppendTextFile(path, content string) error {
 		return err
 	}
 	return nil
+}
+
+// RandomString generates a random alphanumeric string of length n.
+func RandomString(n int) string {
+	const letters = "abcdefghijklmnopqrstuvwxyz0123456789"
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letters[r.Intn(len(letters))]
+	}
+	return string(b)
 }
