@@ -74,6 +74,16 @@ func Down(rootAbsPath, childName string) error {
 	return grove.Down(rootAbsPath, childName)
 }
 
+// Cd changes repository context (".." for parent, repo name for child).
+func Cd(rootAbsPath, target string) error {
+	return grove.Cd(rootAbsPath, target)
+}
+
+// Ls lists child repositories of the current repository.
+func Ls(rootAbsPath string) ([]string, error) {
+	return grove.Ls(rootAbsPath)
+}
+
 // Repo represents a registered repository in the public API.
 type Repo struct {
 	Name   string

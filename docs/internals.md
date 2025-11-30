@@ -66,12 +66,12 @@ Switches the user's working directory to a specific repo branch.
     *   `git checkout gitgroove/repos/<repo>/branches/<branch>`: Standard git checkout.
     *   Since the branch was created with the subdirectory as its root, `git checkout` naturally replaces your working directory with just those files.
 
-### `up` / `down <child>`
-Navigates the hierarchy.
+### `cd <target>` / `ls`
+Navigates the hierarchy like a filesystem.
 *   **Action**:
-    1.  Reads `.gitgroverepo` to find current repo name.
-    2.  Reads `gitgroove/system` to find parent/child name.
-    3.  Calls `switch` to the target repo.
+    1.  `cd ..`: Reads `.gitgroverepo` to find current repo, then switches to its parent.
+    2.  `cd <child>`: Switches to the specified child repository.
+    3.  `ls`: Lists all children of the current repository.
 
 ### `add` (Stage)
 Stages files with safety checks.
