@@ -7,10 +7,19 @@ import (
 	"strings"
 
 	"github.com/kuchuk-borom-debbarma/GitGrove/core/internal/grove/info"
+	gitUtil "github.com/kuchuk-borom-debbarma/GitGrove/core/internal/util/git"
 )
 
 // Up switches the working tree to the parent repository's branch.
 func Up(rootAbsPath string) error {
+	// Check if we are on system branch
+	currentBranch, err := gitUtil.GetCurrentBranch(rootAbsPath)
+	if err == nil && currentBranch == "gitgroove/system" {
+		// Already at System Root.
+		fmt.Println("Already at System Root.")
+		return nil
+	}
+
 	// 1. Identify current repo
 	markerPath := filepath.Join(rootAbsPath, ".gitgroverepo")
 	content, err := os.ReadFile(markerPath)

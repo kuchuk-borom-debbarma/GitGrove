@@ -7,10 +7,31 @@ import (
 	"strings"
 
 	"github.com/kuchuk-borom-debbarma/GitGrove/core/internal/grove/info"
+	gitUtil "github.com/kuchuk-borom-debbarma/GitGrove/core/internal/util/git"
 )
 
 // Down switches the working tree to a child repository's branch.
 func Down(rootAbsPath, childName string) error {
+	// Check if we are on system branch
+	currentBranch, err := gitUtil.GetCurrentBranch(rootAbsPath)
+	if err == nil && currentBranch == "gitgroove/system" {
+		// We are at System Root. Allow switching to any root repo.
+		repoInfo, err := info.GetRepoInfo(rootAbsPath)
+		if err != nil {
+			return fmt.Errorf("failed to load repo info: %w", err)
+		}
+		childRepo, ok := repoInfo.Repos[childName]
+		if !ok {
+			return fmt.Errorf("repo '%s' not found", childName)
+		}
+		if childRepo.Repo.Parent != "" {
+			return fmt.Errorf("repo '%s' is not a root repository (parent: %s)", childName, childRepo.Repo.Parent)
+		}
+		// Switch to root repo
+		branchName := "main"
+		return CheckoutRepo(rootAbsPath, childName, branchName, false, false)
+	}
+
 	// 1. Identify current repo
 	markerPath := filepath.Join(rootAbsPath, ".gitgroverepo")
 	content, err := os.ReadFile(markerPath)
