@@ -95,10 +95,16 @@ func (interactiveCommand) Execute(args map[string]any) error {
 	// 3. Interactive Loop
 	for {
 		fmt.Println("\n--- GitGrove Interactive Session ---")
-		fmt.Println("1. Register a Repository")
-		fmt.Println("2. Link Repositories")
-		fmt.Println("3. Switch Branch")
-		fmt.Println("4. Exit")
+		fmt.Println("1. Info")
+		fmt.Println("2. Register a Repository")
+		fmt.Println("3. Link Repositories")
+		fmt.Println("4. Create Branch")
+		fmt.Println("5. Checkout Branch")
+		fmt.Println("6. Switch Branch (Legacy)")
+		fmt.Println("7. Stage Files")
+		fmt.Println("8. Commit Changes")
+		fmt.Println("9. Move Repository")
+		fmt.Println("10. Exit")
 		fmt.Print("Select an option: ")
 
 		input, _ := reader.ReadString('\n')
@@ -106,17 +112,38 @@ func (interactiveCommand) Execute(args map[string]any) error {
 
 		switch input {
 		case "1":
-			handleRegister(reader, absPath)
+			handleInfo(absPath)
 		case "2":
-			handleLink(reader, absPath)
+			handleRegister(reader, absPath)
 		case "3":
-			handleSwitch(reader, absPath)
+			handleLink(reader, absPath)
 		case "4":
+			handleBranch(reader, absPath)
+		case "5":
+			handleCheckout(reader, absPath)
+		case "6":
+			handleSwitch(reader, absPath)
+		case "7":
+			handleStage(reader, absPath)
+		case "8":
+			handleCommit(reader, absPath)
+		case "9":
+			handleMove(reader, absPath)
+		case "10":
 			fmt.Println("Exiting...")
 			return nil
 		default:
 			fmt.Println("Invalid option. Please try again.")
 		}
+	}
+}
+
+func handleInfo(rootPath string) {
+	info, err := core.Info(rootPath)
+	if err != nil {
+		fmt.Printf("Error getting info: %v\n", err)
+	} else {
+		fmt.Println(info)
 	}
 }
 
@@ -164,6 +191,48 @@ func handleLink(reader *bufio.Reader, rootPath string) {
 	}
 }
 
+func handleBranch(reader *bufio.Reader, rootPath string) {
+	fmt.Print("Enter Repository Name: ")
+	repoName, _ := reader.ReadString('\n')
+	repoName = strings.TrimSpace(repoName)
+
+	fmt.Print("Enter New Branch Name: ")
+	branch, _ := reader.ReadString('\n')
+	branch = strings.TrimSpace(branch)
+
+	if repoName == "" || branch == "" {
+		fmt.Println("Error: Repository Name and Branch Name are required.")
+		return
+	}
+
+	if err := core.CreateRepoBranch(rootPath, repoName, branch); err != nil {
+		fmt.Printf("Error creating branch: %v\n", err)
+	} else {
+		fmt.Println("Branch created successfully.")
+	}
+}
+
+func handleCheckout(reader *bufio.Reader, rootPath string) {
+	fmt.Print("Enter Repository Name: ")
+	repoName, _ := reader.ReadString('\n')
+	repoName = strings.TrimSpace(repoName)
+
+	fmt.Print("Enter Branch Name: ")
+	branch, _ := reader.ReadString('\n')
+	branch = strings.TrimSpace(branch)
+
+	if repoName == "" || branch == "" {
+		fmt.Println("Error: Repository Name and Branch Name are required.")
+		return
+	}
+
+	if err := core.CheckoutRepo(rootPath, repoName, branch); err != nil {
+		fmt.Printf("Error checking out branch: %v\n", err)
+	} else {
+		fmt.Println("Checked out branch successfully.")
+	}
+}
+
 func handleSwitch(reader *bufio.Reader, rootPath string) {
 	fmt.Print("Enter Repository Name: ")
 	repoName, _ := reader.ReadString('\n')
@@ -182,6 +251,71 @@ func handleSwitch(reader *bufio.Reader, rootPath string) {
 		fmt.Printf("Error switching branch: %v\n", err)
 	} else {
 		fmt.Println("Switched branch successfully.")
+	}
+}
+
+func handleStage(reader *bufio.Reader, rootPath string) {
+	fmt.Print("Enter file paths to stage (comma separated, or '.' for all): ")
+	input, _ := reader.ReadString('\n')
+	input = strings.TrimSpace(input)
+
+	if input == "" {
+		fmt.Println("Error: File paths are required.")
+		return
+	}
+
+	var files []string
+	if input == "." {
+		files = []string{"."}
+	} else {
+		parts := strings.Split(input, ",")
+		for _, p := range parts {
+			files = append(files, strings.TrimSpace(p))
+		}
+	}
+
+	if err := core.Stage(rootPath, files); err != nil {
+		fmt.Printf("Error staging files: %v\n", err)
+	} else {
+		fmt.Println("Files staged successfully.")
+	}
+}
+
+func handleCommit(reader *bufio.Reader, rootPath string) {
+	fmt.Print("Enter commit message: ")
+	message, _ := reader.ReadString('\n')
+	message = strings.TrimSpace(message)
+
+	if message == "" {
+		fmt.Println("Error: Commit message is required.")
+		return
+	}
+
+	if err := core.Commit(rootPath, message); err != nil {
+		fmt.Printf("Error committing changes: %v\n", err)
+	} else {
+		fmt.Println("Changes committed successfully.")
+	}
+}
+
+func handleMove(reader *bufio.Reader, rootPath string) {
+	fmt.Print("Enter Repository Name: ")
+	repoName, _ := reader.ReadString('\n')
+	repoName = strings.TrimSpace(repoName)
+
+	fmt.Print("Enter New Relative Path: ")
+	newPath, _ := reader.ReadString('\n')
+	newPath = strings.TrimSpace(newPath)
+
+	if repoName == "" || newPath == "" {
+		fmt.Println("Error: Repository Name and New Path are required.")
+		return
+	}
+
+	if err := core.Move(rootPath, repoName, newPath); err != nil {
+		fmt.Printf("Error moving repository: %v\n", err)
+	} else {
+		fmt.Println("Repository moved successfully.")
 	}
 }
 
