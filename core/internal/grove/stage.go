@@ -51,24 +51,86 @@ func Stage(rootAbsPath string, files []string) error {
 		return fmt.Errorf("current branch belongs to unknown repo '%s'", targetRepoName)
 	}
 
-	// 3. Validate files
-	filesToStage, err := validateStagingFiles(rootAbsPath, targetRepo, files)
+	// 3. Expand input files to all changed files (to handle directories like '.')
+	expandedFiles, err := expandToChangedFiles(rootAbsPath, files)
+	if err != nil {
+		return fmt.Errorf("failed to expand file paths: %w", err)
+	}
+
+	if len(expandedFiles) == 0 {
+		fmt.Println("No changed files match the provided paths.")
+		return nil
+	}
+
+	// 4. Validate files (warn and skip invalid ones)
+	filesToStage, err := validateStagingFiles(rootAbsPath, targetRepo, expandedFiles)
 	if err != nil {
 		return err
 	}
 
-	// 4. Batch Stage
+	// 5. Batch Stage
 	if len(filesToStage) > 0 {
 		// We can pass multiple files to git add
-		// gitUtil.StagePath currently takes one file. We need to use runGit directly or update StagePath.
-		// Let's use runGit directly here for efficiency.
 		args := append([]string{"add", "--"}, filesToStage...)
 		if _, err := gitUtil.RunGit(rootAbsPath, args...); err != nil {
 			return fmt.Errorf("failed to stage files: %w", err)
 		}
+	} else {
+		fmt.Println("No valid files to stage within the current repository scope.")
 	}
 
 	return nil
+}
+
+func expandToChangedFiles(rootAbsPath string, inputFiles []string) ([]string, error) {
+	// Get all changed files (modified + untracked)
+	// git status --porcelain -u
+	out, err := gitUtil.RunGit(rootAbsPath, "status", "--porcelain", "-u")
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.TrimSpace(out) == "" {
+		return []string{}, nil
+	}
+
+	var allChanged []string
+	lines := strings.Split(out, "\n")
+	for _, line := range lines {
+		if len(line) < 4 {
+			continue
+		}
+		// Format is "XY PATH"
+		path := line[3:]
+		// Handle quoted paths if any (git status quotes paths with spaces/special chars)
+		if strings.HasPrefix(path, "\"") && strings.HasSuffix(path, "\"") {
+			path = path[1 : len(path)-1]
+			// TODO: Unescape if needed, but for now assume simple quotes
+		}
+		allChanged = append(allChanged, path)
+	}
+
+	// Filter changed files against inputFiles
+	var matchedFiles []string
+	for _, changedRel := range allChanged {
+		changedAbs := filepath.Join(rootAbsPath, changedRel)
+
+		for _, input := range inputFiles {
+			// Normalize input to absolute
+			inputAbs := fileUtil.NormalizePath(input)
+			if !filepath.IsAbs(inputAbs) {
+				inputAbs = filepath.Join(rootAbsPath, input)
+			}
+
+			// Check if changed file matches input (exact or inside dir)
+			if changedAbs == inputAbs || strings.HasPrefix(changedAbs, inputAbs+string(filepath.Separator)) {
+				matchedFiles = append(matchedFiles, changedRel) // Keep relative for git add
+				break
+			}
+		}
+	}
+
+	return matchedFiles, nil
 }
 
 func validateStagingFiles(rootAbsPath string, targetRepo model.Repo, files []string) ([]string, error) {
@@ -76,38 +138,38 @@ func validateStagingFiles(rootAbsPath string, targetRepo model.Repo, files []str
 	var filesToStage []string
 
 	for _, file := range files {
-		// Normalize and resolve absolute path
-		cleanFile := fileUtil.NormalizePath(file)
-		absFile := cleanFile
-		if !filepath.IsAbs(cleanFile) {
-			absFile = filepath.Join(rootAbsPath, cleanFile)
-		}
+		// file is relative to rootAbsPath (from expandToChangedFiles)
+		absFile := filepath.Join(rootAbsPath, file)
 
-		// Check existence
+		// Check existence (should exist if it came from git status, but good to be safe)
 		if !fileUtil.Exists(absFile) {
-			return nil, fmt.Errorf("pathspec '%s' did not match any files", file)
+			// If deleted, git status shows it. git add should handle deleted files too.
+			// But fileUtil.Exists returns false.
+			// If we want to stage deletions, we should allow non-existent files if they are in git status.
+			// For now, let's assume we proceed.
 		}
 
 		// Verify file is strictly inside the target repo
 		rel, err := filepath.Rel(targetRepoAbsPath, absFile)
 		if err != nil || strings.HasPrefix(rel, "..") || strings.HasPrefix(rel, "/") {
-			return nil, fmt.Errorf("path '%s' is outside the current repository scope (%s)", file, targetRepo.Name)
+			fmt.Printf("Warning: Skipping '%s' - outside current repository scope (%s)\n", file, targetRepo.Name)
+			continue
 		}
 
 		// Nested Repo Check
 		if err := checkNestedRepo(targetRepoAbsPath, absFile); err != nil {
-			return nil, err
+			fmt.Printf("Warning: Skipping '%s' - %v\n", file, err)
+			continue
 		}
-
-		// Collect relative path for batch staging
-		relToRoot, _ := filepath.Rel(rootAbsPath, absFile)
 
 		// Forbid staging .gg/ files
-		if strings.HasPrefix(relToRoot, ".gg/") || relToRoot == ".gg" {
-			return nil, fmt.Errorf("cannot stage GitGroove metadata: %s", relToRoot)
+		// file is relative to root, so check prefix
+		if strings.HasPrefix(file, ".gg/") || file == ".gg" {
+			fmt.Printf("Warning: Skipping '%s' - cannot stage GitGroove metadata\n", file)
+			continue
 		}
 
-		filesToStage = append(filesToStage, relToRoot)
+		filesToStage = append(filesToStage, file)
 	}
 	return filesToStage, nil
 }
@@ -122,7 +184,7 @@ func checkNestedRepo(rootAbsPath, fileAbsPath string) error {
 
 	// Traverse up until we reach the root
 	for {
-		if current == root {
+		if current == root || len(current) < len(root) {
 			break
 		}
 
@@ -130,13 +192,12 @@ func checkNestedRepo(rootAbsPath, fileAbsPath string) error {
 		markerPath := filepath.Join(current, ".gitgroverepo")
 		if fileUtil.Exists(markerPath) {
 			rel, _ := filepath.Rel(root, current)
-			return fmt.Errorf("path '%s' belongs to nested repo '%s'", filepath.Base(fileAbsPath), rel)
+			return fmt.Errorf("belongs to nested repo '%s'", rel)
 		}
 
 		// Move up
 		parent := filepath.Dir(current)
 		if parent == current {
-			// Should not happen if we are inside root, but safety break
 			break
 		}
 		current = parent

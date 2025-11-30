@@ -20,7 +20,7 @@ func (c *StageCommand) Command() string {
 }
 
 func (c *StageCommand) Description() string {
-	return "Stage files with GitGrove validation (supports . for current directory)"
+	return "Stage files with GitGrove validation (skips out-of-bound files with warning)"
 }
 
 func (c *StageCommand) ValidateArgs(args map[string]any) error {
