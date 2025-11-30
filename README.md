@@ -87,6 +87,14 @@ gitgrove register --name payments --path services/payments
 gitgrove register --name inventory --path services/inventory
 ```
 
+**Batch Registration (Semicolon Syntax):**
+```bash
+# Register multiple at once - note the quotes!
+gitgrove register "auth;services/auth" "payments;services/payments" "inventory;services/inventory"
+```
+
+> **Note**: When using semicolon syntax, each argument must be quoted and in `name;path` format.
+
 ### 3. Define Hierarchy (Optional)
 
 Link repos to create a tree:
@@ -95,6 +103,11 @@ Link repos to create a tree:
 gitgrove link --child auth --parent services
 gitgrove link --child payments --parent services
 gitgrove link --child inventory --parent services
+```
+
+Or batch link with semicolon syntax:
+```bash
+gitgrove link "auth;services" "payments;services" "inventory;services"
 ```
 
 ### 4. Start Working

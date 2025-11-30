@@ -14,7 +14,15 @@ func (infoCommand) Command() string {
 }
 
 func (infoCommand) Description() string {
-	return "Check the health and status of the GitGrove system"
+	return `Show repository tree and current location
+
+Usage:
+  gitgrove info
+
+Displays:
+  - Repository hierarchy
+  - Current location (marked with *)
+  - System status`
 }
 
 func (infoCommand) ValidateArgs(args map[string]any) error {

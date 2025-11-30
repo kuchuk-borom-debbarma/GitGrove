@@ -18,7 +18,14 @@ func (c *CommitCommand) Command() string {
 }
 
 func (c *CommitCommand) Description() string {
-	return "Commit staged changes with GitGrove validation"
+	return `Commit staged changes (scoped to current repository)
+
+Usage:
+  gitgrove commit -m "message"
+
+Examples:
+  gitgrove commit -m "Add login validation"
+  gitgrove commit -m "Fix payment bug"`
 }
 
 func (c *CommitCommand) ValidateArgs(args map[string]any) error {

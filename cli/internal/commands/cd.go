@@ -14,7 +14,14 @@ func (cdCommand) Command() string {
 }
 
 func (cdCommand) Description() string {
-	return "Change repository context (.. for parent, name for child)"
+	return `Navigate repository hierarchy like a filesystem
+
+Usage:
+  gitgrove cd <target>
+
+Examples:
+  gitgrove cd auth        # Navigate to auth repository
+  gitgrove cd ..          # Go up to parent repository`
 }
 
 func (cdCommand) ValidateArgs(args map[string]any) error {

@@ -15,7 +15,18 @@ func (registerCmd) Command() string {
 }
 
 func (registerCmd) Description() string {
-	return "Register a repository using --name and --path, or positional args like name;path"
+	return `Register repositories in your monorepo
+
+Usage:
+  gitgrove register --name auth --path services/auth
+  gitgrove register auth;services/auth payments;services/payments
+
+Examples:
+  # Register a single service
+  gitgrove register --name api --path api
+
+  # Register multiple services at once
+  gitgrove register auth;services/auth payments;services/payments inventory;services/inventory`
 }
 
 func (registerCmd) ValidateArgs(args map[string]any) error {

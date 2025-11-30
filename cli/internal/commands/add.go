@@ -20,7 +20,15 @@ func (c *AddCommand) Command() string {
 }
 
 func (c *AddCommand) Description() string {
-	return "Add files with GitGrove validation (skips out-of-bound files with warning)"
+	return `Stage files for commit (scoped to current repository)
+
+Usage:
+  gitgrove add <files...>
+
+Examples:
+  gitgrove add .                    # Add all changed files
+  gitgrove add src/main.go          # Add specific file
+  gitgrove add src/ tests/          # Add multiple paths`
 }
 
 func (c *AddCommand) ValidateArgs(args map[string]any) error {

@@ -13,7 +13,14 @@ func (initCommand) Command() string {
 }
 
 func (initCommand) Description() string {
-	return "Initialize a new GitGrove repository"
+	return `Initialize GitGrove in an existing Git repository
+
+Usage:
+  gitgrove init
+
+Note:
+  Must be run from within a Git repository
+  Creates the gitgroove/system branch for metadata`
 }
 
 func (initCommand) ValidateArgs(args map[string]any) error {

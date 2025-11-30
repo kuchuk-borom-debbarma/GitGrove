@@ -14,7 +14,15 @@ func (lsCommand) Command() string {
 }
 
 func (lsCommand) Description() string {
-	return "List child repositories"
+	return `List child repositories of current location
+
+Usage:
+  gitgrove ls
+
+Example:
+  # While in 'services' repo
+  gitgrove ls
+  # Output: auth, payments, inventory`
 }
 
 func (lsCommand) ValidateArgs(args map[string]any) error {

@@ -15,7 +15,18 @@ func (linkCmd) Command() string {
 }
 
 func (linkCmd) Description() string {
-	return "Link a child repository to a parent using --child and --parent, or positional args like child;parent"
+	return `Define parent-child relationships between repositories
+
+Usage:
+  gitgrove link --child auth --parent services
+  gitgrove link auth;services payments;services
+
+Examples:
+  # Link auth service to services parent
+  gitgrove link --child auth --parent services
+
+  # Link multiple services at once
+  gitgrove link auth;services payments;services inventory;services`
 }
 
 func (linkCmd) ValidateArgs(args map[string]any) error {
