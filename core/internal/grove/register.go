@@ -70,22 +70,10 @@ func Register(rootAbsPath string, repos map[string]string) error {
 		}
 	}
 
-	// 8. Create .gitgroverepo marker in the registered directories
-	// This is critical for the stage command to detect nested repos.
+	// 8. Create orphan branches for each registered repo
 	for name, path := range repos {
-		// path is relative to rootAbsPath
-		absPath := filepath.Join(rootAbsPath, path)
-		markerPath := filepath.Join(absPath, ".gitgroverepo")
-
-		// Always overwrite or create the marker with the repo name
-		// This ensures identity is correct even if re-registering or if file was empty
-		if err := fileUtil.WriteTextFile(markerPath, name); err != nil {
-			log.Warn().Msgf("Failed to write marker file at %s: %v", markerPath, err)
-			// We don't fail the registration because the metadata is already committed.
-		}
-
-		// 9. Create orphan branch for the repo if it doesn't exist
 		// Branch: refs/heads/gitgroove/repos/<name>/branches/main
+		// The orphan branch will include the .gitgroverepo marker from the internal branch commit
 		branchRef := RepoBranchRef(name, model.DefaultRepoBranch)
 		if !gitUtil.RefExists(rootAbsPath, branchRef) {
 			log.Info().Msgf("Creating orphan branch %s", branchRef)
@@ -127,7 +115,6 @@ func Register(rootAbsPath string, repos map[string]string) error {
 	}
 
 	log.Info().Msg("Successfully registered repositories")
-	log.Info().Msg("Wrote repo marker files; please commit them if you need them visible on your working branches")
 	return nil
 }
 
@@ -139,6 +126,17 @@ func validateRegisterEnvironment(rootAbsPath string) error {
 		return fmt.Errorf("working tree is not clean: %w", err)
 	}
 	return nil
+}
+
+// canonicalizePath normalizes and converts a path to be relative to rootAbsPath.
+// This ensures consistent path handling throughout the registration process.
+func canonicalizePath(rootAbsPath, path string) string {
+	cleanPath := fileUtil.NormalizePath(path)
+	if filepath.IsAbs(cleanPath) {
+		rel, _ := filepath.Rel(rootAbsPath, cleanPath)
+		cleanPath = fileUtil.NormalizePath(rel)
+	}
+	return cleanPath
 }
 
 func createRegisterCommit(rootAbsPath, oldTip string, repos map[string]string) (string, error) {
@@ -164,12 +162,7 @@ func createRegisterCommit(rootAbsPath, oldTip string, repos map[string]string) (
 
 		pathFile := filepath.Join(repoDir, "path")
 		// Canonicalize path before writing
-		cleanPath := fileUtil.NormalizePath(path)
-		if filepath.IsAbs(cleanPath) {
-			// Should have been caught by validation, but ensure we write relative
-			rel, _ := filepath.Rel(rootAbsPath, cleanPath)
-			cleanPath = fileUtil.NormalizePath(rel)
-		}
+		cleanPath := canonicalizePath(rootAbsPath, path)
 
 		if err := os.WriteFile(pathFile, []byte(cleanPath), 0644); err != nil {
 			return "", fmt.Errorf("failed to write path for repo %s: %w", name, err)
@@ -192,13 +185,7 @@ func createRegisterCommit(rootAbsPath, oldTip string, repos map[string]string) (
 	for name, path := range repos {
 		// path is relative to root
 		// We need to write to tempDir/path/.gitgroverepo
-
-		// Canonicalize path again (or reuse cleanPath if I refactor, but let's just re-clean for safety)
-		cleanPath := fileUtil.NormalizePath(path)
-		if filepath.IsAbs(cleanPath) {
-			rel, _ := filepath.Rel(rootAbsPath, cleanPath)
-			cleanPath = fileUtil.NormalizePath(rel)
-		}
+		cleanPath := canonicalizePath(rootAbsPath, path)
 
 		fullPath := filepath.Join(tempDir, cleanPath)
 		if err := os.MkdirAll(fullPath, 0755); err != nil {
@@ -231,12 +218,8 @@ func createRegisterCommit(rootAbsPath, oldTip string, repos map[string]string) (
 
 	// Stage marker files and stub directories
 	for name, path := range repos {
-		// Canonicalize path again
-		cleanPath := fileUtil.NormalizePath(path)
-		if filepath.IsAbs(cleanPath) {
-			rel, _ := filepath.Rel(rootAbsPath, cleanPath)
-			cleanPath = fileUtil.NormalizePath(rel)
-		}
+		// Canonicalize path
+		cleanPath := canonicalizePath(rootAbsPath, path)
 
 		markerRelPath := filepath.Join(cleanPath, ".gitgroverepo")
 		if err := gitUtil.StagePath(tempDir, markerRelPath); err != nil {
