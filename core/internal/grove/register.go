@@ -133,107 +133,33 @@ func canonicalizePath(rootAbsPath, path string) string {
 }
 
 func createRegisterCommit(rootAbsPath, oldTip string, repos map[string]string) (string, error) {
-	// 5. Prepare updated metadata in temporary workspace
-	tempDir, err := os.MkdirTemp("", "gitgroove-register-*")
+	// Build file updates map for metadata
+	updates := make(map[string]string)
+
+	// For each repo, create metadata files and marker files
+	for name, path := range repos {
+		cleanPath := canonicalizePath(rootAbsPath, path)
+
+		// 1. Create .gg/repos/<name>/path file
+		pathFile := fmt.Sprintf(".gg/repos/%s/path", name)
+		updates[pathFile] = cleanPath
+
+		// 2. Create marker file at repo location
+		markerFile := filepath.Join(cleanPath, ".gitgroverepo")
+		updates[markerFile] = name
+
+		// 3. Create stub directory marker (for ls to show root repos)
+		stubFile := filepath.Join(name, ".gitkeep")
+		updates[stubFile] = ""
+	}
+
+	// Create commit with all changes using plumbing API
+	message := fmt.Sprintf("Register %d new repositories", len(repos))
+	newTip, err := gitUtil.CreateMetadataCommit(rootAbsPath, oldTip, message, updates, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to create temp dir: %w", err)
-	}
-	defer os.RemoveAll(tempDir) // cleanup
-
-	// Create detached worktree at oldTip
-	if err := gitUtil.WorktreeAddDetached(rootAbsPath, tempDir, oldTip); err != nil {
-		return "", fmt.Errorf("failed to create temporary worktree: %w", err)
-	}
-	defer gitUtil.WorktreeRemove(rootAbsPath, tempDir) // cleanup worktree
-
-	// Write new repos to .gg/repos/<name>/path AND write marker files
-	for name, path := range repos {
-		repoDir := filepath.Join(tempDir, ".gg", "repos", name)
-		if err := os.MkdirAll(repoDir, 0755); err != nil {
-			return "", fmt.Errorf("failed to create dir for repo %s: %w", name, err)
-		}
-
-		pathFile := filepath.Join(repoDir, "path")
-		// Canonicalize path before writing
-		cleanPath := canonicalizePath(rootAbsPath, path)
-
-		if err := os.WriteFile(pathFile, []byte(cleanPath), 0644); err != nil {
-			return "", fmt.Errorf("failed to write path for repo %s: %w", name, err)
-		}
-
-		// Write marker file in the temp worktree so it gets committed
-		// This ensures that when we are on gitgroove/internal, the marker is tracked.
-		// Note: repoDir is .gg/repos/<name>, but the marker should be in the actual repo path?
-		// WAIT. The marker file goes into the ACTUAL repo path, not .gg/repos.
-		// The `createRegisterCommit` function is working in a temp worktree of the ROOT repo.
-		// The `repos` map contains paths relative to root.
-		// So we need to write to `tempDir/<path>/.gitgroverepo`.
-
-		// Let's re-read the plan and the code.
-		// The code currently stages ".gg/repos".
-		// I need to write the marker to `tempDir/<path>/.gitgroverepo` and ALSO stage it.
+		return "", fmt.Errorf("failed to create metadata commit: %w", err)
 	}
 
-	// Write marker files to the actual repo locations in the temp worktree
-	for name, path := range repos {
-		// path is relative to root
-		// We need to write to tempDir/path/.gitgroverepo
-		cleanPath := canonicalizePath(rootAbsPath, path)
-
-		fullPath := filepath.Join(tempDir, cleanPath)
-		if err := os.MkdirAll(fullPath, 0755); err != nil {
-			return "", fmt.Errorf("failed to create repo dir in temp worktree %s: %w", fullPath, err)
-		}
-
-		markerPath := filepath.Join(fullPath, ".gitgroverepo")
-		if err := os.WriteFile(markerPath, []byte(name), 0644); err != nil {
-			return "", fmt.Errorf("failed to write marker in temp worktree %s: %w", markerPath, err)
-		}
-
-		// Create directory stub in the root of the internal branch (tempDir)
-		// This makes the repo visible when "ls" is run in the internal branch.
-		// We create <repoName>/.gitkeep
-		stubDir := filepath.Join(tempDir, name)
-		if err := os.MkdirAll(stubDir, 0755); err != nil {
-			return "", fmt.Errorf("failed to create stub dir %s: %w", stubDir, err)
-		}
-		stubKeep := filepath.Join(stubDir, ".gitkeep")
-		if err := fileUtil.CreateEmptyFile(stubKeep); err != nil {
-			return "", fmt.Errorf("failed to create stub .gitkeep %s: %w", stubKeep, err)
-		}
-	}
-
-	// 6. Create new commit
-	// Stage everything in .gg/repos
-	if err := gitUtil.StagePath(tempDir, ".gg/repos"); err != nil {
-		return "", fmt.Errorf("failed to stage .gg/repos: %w", err)
-	}
-
-	// Stage marker files and stub directories
-	for name, path := range repos {
-		// Canonicalize path
-		cleanPath := canonicalizePath(rootAbsPath, path)
-
-		markerRelPath := filepath.Join(cleanPath, ".gitgroverepo")
-		if err := gitUtil.StagePath(tempDir, markerRelPath); err != nil {
-			return "", fmt.Errorf("failed to stage marker file %s: %w", markerRelPath, err)
-		}
-
-		// Stage stub directory
-		// We just need to stage the .gitkeep file inside it
-		stubKeepRel := filepath.Join(name, ".gitkeep")
-		if err := gitUtil.StagePath(tempDir, stubKeepRel); err != nil {
-			return "", fmt.Errorf("failed to stage stub file %s: %w", stubKeepRel, err)
-		}
-	}
-
-	if err := gitUtil.Commit(tempDir, fmt.Sprintf("Register %d new repositories", len(repos))); err != nil {
-		return "", fmt.Errorf("failed to commit metadata changes: %w", err)
-	}
-	newTip, err := gitUtil.GetHeadCommit(tempDir)
-	if err != nil {
-		return "", fmt.Errorf("failed to get new commit hash: %w", err)
-	}
 	return newTip, nil
 }
 

@@ -79,77 +79,35 @@ func validateLinkEnvironment(rootAbsPath string) error {
 }
 
 func applyRelationships(rootAbsPath, oldTip string, relationships map[string]string) (string, error) {
-	// 5. Prepare updated metadata in temporary workspace
-	tempDir, err := os.MkdirTemp("", "gitgroove-link-*")
-	if err != nil {
-		return "", fmt.Errorf("failed to create temp dir: %w", err)
-	}
-	defer os.RemoveAll(tempDir) // cleanup
+	// Build file updates and deletions for metadata
+	updates := make(map[string]string)
+	var deletions []string
 
-	// Create detached worktree at oldTip
-	if err := gitUtil.WorktreeAddDetached(rootAbsPath, tempDir, oldTip); err != nil {
-		return "", fmt.Errorf("failed to create temporary worktree: %w", err)
-	}
-	defer gitUtil.WorktreeRemove(rootAbsPath, tempDir) // cleanup worktree
-
-	// Apply relationships
-	// For each child -> parent:
+	// For each child -> parent relationship:
 	// 1. Write parent name to .gg/repos/<child>/parent
 	// 2. Create empty file .gg/repos/<parent>/children/<child>
+	// 3. Remove stub directory for child (no longer a root repo)
 	for child, parent := range relationships {
 		// Write parent pointer
-		parentFile := filepath.Join(tempDir, ".gg", "repos", child, "parent")
-		if err := os.WriteFile(parentFile, []byte(parent), 0644); err != nil {
-			return "", fmt.Errorf("failed to write parent for %s: %w", child, err)
-		}
+		parentFile := fmt.Sprintf(".gg/repos/%s/parent", child)
+		updates[parentFile] = parent
 
 		// Write child pointer in parent's folder
-		childrenDir := filepath.Join(tempDir, ".gg", "repos", parent, "children")
-		if err := os.MkdirAll(childrenDir, 0755); err != nil {
-			return "", fmt.Errorf("failed to create children dir for %s: %w", parent, err)
-		}
-		childFile := filepath.Join(childrenDir, child)
-		if err := os.WriteFile(childFile, []byte{}, 0644); err != nil {
-			return "", fmt.Errorf("failed to write child entry %s in %s: %w", child, parent, err)
-		}
+		childFile := fmt.Sprintf(".gg/repos/%s/children/%s", parent, child)
+		updates[childFile] = "" // Empty file
 
-		// Remove the child's stub directory from the root of system branch
-		// This repo is no longer a root repo, so it shouldn't be visible in system root.
-		stubDir := filepath.Join(tempDir, child)
-		if err := os.RemoveAll(stubDir); err != nil {
-			return "", fmt.Errorf("failed to remove stub dir %s: %w", stubDir, err)
-		}
+		// Remove the child's stub directory (it's no longer a root repo)
+		stubFile := filepath.Join(child, ".gitkeep")
+		deletions = append(deletions, stubFile)
 	}
 
-	// 6. Commit updated metadata
-	// Stage .gg/repos
-	if err := gitUtil.StagePath(tempDir, ".gg/repos"); err != nil {
-		return "", fmt.Errorf("failed to stage .gg/repos: %w", err)
-	}
-
-	// Stage removal of stubs
-	for child := range relationships {
-		// We need to stage the removal. "git add -u" or "git add <path>" works for deletions too if file is gone.
-		if err := gitUtil.StagePath(tempDir, child); err != nil {
-			// If the stub didn't exist (e.g. re-linking), this might fail or warn.
-			// git add on a missing path that was tracked records the deletion.
-			// But if it wasn't tracked, it might error.
-			// However, registered repos SHOULD have a stub.
-			// Let's log warning but proceed? Or fail?
-			// Ideally we should check if it was tracked.
-			// For now, let's assume it works or we ignore error if it's just "pathspec did not match".
-			// But StagePath wraps runGit which returns error.
-			// Let's try to be robust.
-			log.Debug().Msgf("Staging removal of %s (might fail if not tracked)", child)
-		}
-	}
-	if err := gitUtil.Commit(tempDir, fmt.Sprintf("Link %d repositories", len(relationships))); err != nil {
-		return "", fmt.Errorf("failed to commit metadata changes: %w", err)
-	}
-	newTip, err := gitUtil.GetHeadCommit(tempDir)
+	// Create commit with all changes using plumbing API
+	message := fmt.Sprintf("Link %d repositories", len(relationships))
+	newTip, err := gitUtil.CreateMetadataCommit(rootAbsPath, oldTip, message, updates, deletions)
 	if err != nil {
-		return "", fmt.Errorf("failed to get new commit hash: %w", err)
+		return "", fmt.Errorf("failed to create metadata commit: %w", err)
 	}
+
 	return newTip, nil
 }
 
