@@ -90,12 +90,26 @@ func Register(rootAbsPath string, repos map[string]string) error {
 		if !gitUtil.RefExists(rootAbsPath, branchRef) {
 			log.Info().Msgf("Creating orphan branch %s", branchRef)
 
-			// Create a tree containing ONLY the marker file for this repo AT THE ROOT.
-			// This ensures that when the user switches to this branch, they see the repo content at root.
-			// We use a temporary index to build this tree without affecting the user's index.
+			// Create a tree containing the existing content of the repo folder (flattened)
+			// PLUS the marker file.
 
-			// The marker file content is the repo name
-			treeHash, err := gitUtil.CreateTreeWithFile(rootAbsPath, ".gitgroverepo", name)
+			// 1. Get HEAD commit to find existing content
+			headCommit, err := gitUtil.GetHeadCommit(rootAbsPath)
+			var baseTreeHash string
+			if err == nil {
+				// 2. Get subtree hash for the repo path
+				// If path is not in HEAD (e.g. new untracked folder), this might fail or return error.
+				// We treat error as "empty tree".
+				subtree, err := gitUtil.GetSubtreeHash(rootAbsPath, headCommit, path)
+				if err == nil {
+					baseTreeHash = subtree
+				} else {
+					log.Debug().Msgf("Subtree for %s not found in HEAD (new repo?): %v", path, err)
+				}
+			}
+
+			// 3. Add .gitgroverepo marker to this tree
+			treeHash, err := gitUtil.AddFileToTree(rootAbsPath, baseTreeHash, ".gitgroverepo", name)
 			if err != nil {
 				log.Warn().Msgf("Failed to create tree for orphan branch: %v", err)
 				continue

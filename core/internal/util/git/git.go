@@ -284,18 +284,6 @@ func CreateTreeWithFile(repoPath, relPath, content string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// CreateBlob creates a git blob object from a string and returns its hash.
-func CreateBlob(repoPath, content string) (string, error) {
-	cmd := exec.Command("git", "hash-object", "-w", "--stdin")
-	cmd.Dir = repoPath
-	cmd.Stdin = strings.NewReader(content)
-	out, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(out)), nil
-}
-
 // GetSubtreeHash returns the tree hash of a specific subdirectory within a commit/ref.
 // It uses `git rev-parse <ref>:<path>`.
 func GetSubtreeHash(repoPath, ref, path string) (string, error) {
@@ -316,4 +304,84 @@ func GetStagedFiles(repoPath string) ([]string, error) {
 		return []string{}, nil
 	}
 	return strings.Split(out, "\n"), nil
+}
+
+// AddFileToTree adds a file to an existing tree (or creates a new one if baseTreeHash is empty).
+// It returns the new tree hash.
+func AddFileToTree(repoPath, baseTreeHash, filename, content string) (string, error) {
+	// 1. Create blob for the file content
+	blobHash, err := CreateBlob(repoPath, content)
+	if err != nil {
+		return "", fmt.Errorf("failed to create blob: %w", err)
+	}
+
+	// 2. If baseTreeHash is provided, read its entries
+	// We use read-tree instead of parsing ls-tree output manually
+	// so we don't need 'entries' variable.
+
+	// 3. Construct input for mktree
+	// mktree expects: <mode> SP <type> SP <object> TAB <file>
+	// ls-tree output (with -z): <mode> SP <type> SP <object> TAB <file> NUL
+	// We need to parse ls-tree output and append our new entry.
+
+	// Actually, git update-index is easier if we have a temporary index.
+	// But we want to avoid touching the index if possible to be pure plumbing.
+	// However, mktree requires sorting.
+
+	// Let's use a temporary index approach as it handles sorting and merging correctly.
+	// git read-tree <baseTreeHash>
+	// git update-index --add --cacheinfo 100644 <blobHash> <filename>
+	// git write-tree
+
+	// But this modifies the index! We must use a temporary index file.
+
+	env := os.Environ()
+	tempIndex := filepath.Join(repoPath, ".git", "index.temp."+fileUtil.RandomString(8))
+	env = append(env, "GIT_INDEX_FILE="+tempIndex)
+
+	// Helper to run git with custom env
+	runGitEnv := func(args ...string) (string, error) {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = repoPath
+		cmd.Env = env
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return string(out), err
+		}
+		return strings.TrimSpace(string(out)), nil
+	}
+
+	defer os.Remove(tempIndex)
+
+	// 1. Read base tree into temp index
+	if baseTreeHash != "" {
+		if _, err := runGitEnv("read-tree", baseTreeHash); err != nil {
+			return "", fmt.Errorf("failed to read tree: %w", err)
+		}
+	}
+
+	// 2. Add new file
+	if _, err := runGitEnv("update-index", "--add", "--cacheinfo", "100644", blobHash, filename); err != nil {
+		return "", fmt.Errorf("failed to update index: %w", err)
+	}
+
+	// 3. Write tree
+	newTreeHash, err := runGitEnv("write-tree")
+	if err != nil {
+		return "", fmt.Errorf("failed to write tree: %w", err)
+	}
+
+	return newTreeHash, nil
+}
+
+// CreateBlob creates a git blob object and returns its hash.
+func CreateBlob(repoPath, content string) (string, error) {
+	cmd := exec.Command("git", "hash-object", "-w", "--stdin")
+	cmd.Dir = repoPath
+	cmd.Stdin = strings.NewReader(content)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to create blob: %s, %w", out, err)
+	}
+	return strings.TrimSpace(string(out)), nil
 }
