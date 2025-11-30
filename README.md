@@ -79,8 +79,9 @@ go build -o gg ./cmd/gg
 | `gg switch <repo> [branch]` | Switch to a repository |
 | `gg add <files>` | Stage changes with validation |
 | `gg commit -m <msg>` | Commit with validation |
-| `gg up` | Navigate to parent repository |
+| `gg up` | Navigate to parent repository (or System Root) |
 | `gg down <child>` | Navigate to child repository |
+| `gg cd <target>` | Navigate to repo, parent (`..`), or System Root (`~`) |
 | `gg ls` | List child repositories |
 | `gg info` | Show project status |
 

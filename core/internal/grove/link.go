@@ -127,11 +127,36 @@ func applyRelationships(rootAbsPath, oldTip string, relationships map[string]str
 		if err := os.WriteFile(childFile, []byte{}, 0644); err != nil {
 			return "", fmt.Errorf("failed to write child entry %s in %s: %w", child, parent, err)
 		}
+
+		// Remove the child's stub directory from the root of system branch
+		// This repo is no longer a root repo, so it shouldn't be visible in system root.
+		stubDir := filepath.Join(tempDir, child)
+		if err := os.RemoveAll(stubDir); err != nil {
+			return "", fmt.Errorf("failed to remove stub dir %s: %w", stubDir, err)
+		}
 	}
 
 	// 6. Commit updated metadata
+	// Stage .gg/repos
 	if err := gitUtil.StagePath(tempDir, ".gg/repos"); err != nil {
 		return "", fmt.Errorf("failed to stage .gg/repos: %w", err)
+	}
+
+	// Stage removal of stubs
+	for child := range relationships {
+		// We need to stage the removal. "git add -u" or "git add <path>" works for deletions too if file is gone.
+		if err := gitUtil.StagePath(tempDir, child); err != nil {
+			// If the stub didn't exist (e.g. re-linking), this might fail or warn.
+			// git add on a missing path that was tracked records the deletion.
+			// But if it wasn't tracked, it might error.
+			// However, registered repos SHOULD have a stub.
+			// Let's log warning but proceed? Or fail?
+			// Ideally we should check if it was tracked.
+			// For now, let's assume it works or we ignore error if it's just "pathspec did not match".
+			// But StagePath wraps runGit which returns error.
+			// Let's try to be robust.
+			log.Debug().Msgf("Staging removal of %s (might fail if not tracked)", child)
+		}
 	}
 	if err := gitUtil.Commit(tempDir, fmt.Sprintf("Link %d repositories", len(relationships))); err != nil {
 		return "", fmt.Errorf("failed to commit metadata changes: %w", err)

@@ -2,6 +2,7 @@ package grove
 
 import (
 	"fmt"
+	"strings"
 
 	gitUtil "github.com/kuchuk-borom-debbarma/GitGrove/core/internal/util/git"
 	"github.com/rs/zerolog/log"
@@ -60,9 +61,20 @@ func CreateRepoBranch(rootAbsPath, repoName, branchName string) error {
 	// the REPO's subtree as its root tree.
 
 	// Get the tree hash of the repo's path within the current HEAD
-	repoTreeHash, err := gitUtil.GetSubtreeHash(rootAbsPath, headCommit, repo.Path)
-	if err != nil {
-		return fmt.Errorf("failed to get subtree hash for repo %s at %s: %w", repoName, repo.Path, err)
+	var repoTreeHash string
+	currentBranch, err := gitUtil.GetCurrentBranch(rootAbsPath)
+	if err == nil && strings.Contains(currentBranch, fmt.Sprintf("gitgroove/repos/%s/branches/", repoName)) {
+		// We are already on a branch of this repo, so the HEAD tree IS the repo tree (flattened)
+		repoTreeHash, err = gitUtil.GetCommitTree(rootAbsPath, headCommit)
+		if err != nil {
+			return fmt.Errorf("failed to get tree from commit %s: %w", headCommit, err)
+		}
+	} else {
+		// We are likely on the root or another repo, so we need to find the subtree
+		repoTreeHash, err = gitUtil.GetSubtreeHash(rootAbsPath, headCommit, repo.Path)
+		if err != nil {
+			return fmt.Errorf("failed to get subtree hash for repo %s at %s: %w", repoName, repo.Path, err)
+		}
 	}
 
 	// Create a new commit with this tree, using HEAD as parent (to keep history linkage)

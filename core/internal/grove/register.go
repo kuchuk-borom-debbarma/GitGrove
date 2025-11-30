@@ -209,6 +209,18 @@ func createRegisterCommit(rootAbsPath, oldTip string, repos map[string]string) (
 		if err := os.WriteFile(markerPath, []byte(name), 0644); err != nil {
 			return "", fmt.Errorf("failed to write marker in temp worktree %s: %w", markerPath, err)
 		}
+
+		// Create directory stub in the root of the system branch (tempDir)
+		// This makes the repo visible when "ls" is run in the system branch.
+		// We create <repoName>/.gitkeep
+		stubDir := filepath.Join(tempDir, name)
+		if err := os.MkdirAll(stubDir, 0755); err != nil {
+			return "", fmt.Errorf("failed to create stub dir %s: %w", stubDir, err)
+		}
+		stubKeep := filepath.Join(stubDir, ".gitkeep")
+		if err := fileUtil.CreateEmptyFile(stubKeep); err != nil {
+			return "", fmt.Errorf("failed to create stub .gitkeep %s: %w", stubKeep, err)
+		}
 	}
 
 	// 6. Create new commit
@@ -217,8 +229,8 @@ func createRegisterCommit(rootAbsPath, oldTip string, repos map[string]string) (
 		return "", fmt.Errorf("failed to stage .gg/repos: %w", err)
 	}
 
-	// Stage marker files
-	for _, path := range repos {
+	// Stage marker files and stub directories
+	for name, path := range repos {
 		// Canonicalize path again
 		cleanPath := fileUtil.NormalizePath(path)
 		if filepath.IsAbs(cleanPath) {
@@ -229,6 +241,13 @@ func createRegisterCommit(rootAbsPath, oldTip string, repos map[string]string) (
 		markerRelPath := filepath.Join(cleanPath, ".gitgroverepo")
 		if err := gitUtil.StagePath(tempDir, markerRelPath); err != nil {
 			return "", fmt.Errorf("failed to stage marker file %s: %w", markerRelPath, err)
+		}
+
+		// Stage stub directory
+		// We just need to stage the .gitkeep file inside it
+		stubKeepRel := filepath.Join(name, ".gitkeep")
+		if err := gitUtil.StagePath(tempDir, stubKeepRel); err != nil {
+			return "", fmt.Errorf("failed to stage stub file %s: %w", stubKeepRel, err)
 		}
 	}
 

@@ -105,6 +105,16 @@ GitGrove stores metadata in `.gg/` directory on the `gitgroove/system` branch:
 - Children as separate files = supports incremental updates
 - Git tracks everything = full history of structural changes
 
+### System Root View
+
+The `gitgroove/system` branch serves as the "System Root" view. In addition to the `.gg/` metadata directory, it contains:
+
+- **Directory Stubs**: Empty directories (with `.gitkeep`) for each registered **root** repository.
+- **Purpose**: Allows users to see and navigate to top-level repositories using standard shell commands (`ls`, `cd`).
+- **Maintenance**:
+    - `register`: Adds stub for new root repos.
+    - `link`: Removes stub if a root repo becomes a child.
+
 ### In-Memory Model
 
 ```go

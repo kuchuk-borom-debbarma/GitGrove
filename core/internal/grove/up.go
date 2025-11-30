@@ -35,7 +35,9 @@ func Up(rootAbsPath string) error {
 
 	parentName := currentRepo.Repo.Parent
 	if parentName == "" {
-		return fmt.Errorf("repo '%s' has no parent (it is a root)", currentRepoName)
+		// If no parent, we are at a root repo.
+		// "Up" from root means going to the System Root view.
+		return SwitchToSystem(rootAbsPath)
 	}
 
 	// We need the parent repo object to get its name and default branch

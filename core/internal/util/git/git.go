@@ -234,6 +234,11 @@ func RunGit(repoPath string, args ...string) (string, error) {
 	return runGit(repoPath, args...)
 }
 
+// GetCommitTree returns the tree hash of a commit.
+func GetCommitTree(repoPath, commitHash string) (string, error) {
+	return runGit(repoPath, "rev-parse", commitHash+"^{tree}")
+}
+
 // CommitTree creates a commit from a tree object.
 func CommitTree(repoPath, treeHash, message string, parents ...string) (string, error) {
 	args := []string{"commit-tree", treeHash, "-m", message}

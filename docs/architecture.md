@@ -781,6 +781,10 @@ refs/heads/
             │   └── parent
             └── frontend/
                 └── path
+    ├── root-repo-1/
+    │   └── .gitkeep
+    └── root-repo-2/
+        └── .gitkeep
 ```
 
 **Repository Branch Tree (Flattened):**

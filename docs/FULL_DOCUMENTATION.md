@@ -551,10 +551,17 @@ gg cd backend
 ```
 
 **What it does:**
-- `gg cd ..` → calls `gg up`
+- `gg cd ..` → calls `gg up` (or switches to System Root if at root repo)
+- `gg cd ~` → switches to System Root
 - `gg cd <name>` → calls `gg down <name>`
 
 This is syntactic sugar for up/down navigation.
+
+**System Root View:**
+When you navigate to the System Root (`~` or `..` from a root repo), you will see:
+- A clean view with directory stubs for all **root** repositories.
+- Nested repositories are hidden in this view.
+- You can `cd` into any root repository from here.
 
 ---
 
