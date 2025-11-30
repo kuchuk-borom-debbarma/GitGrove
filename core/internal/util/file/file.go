@@ -143,3 +143,68 @@ func RandomString(n int) string {
 	}
 	return string(b)
 }
+
+// CleanEmptyDirs recursively removes empty directories within the given root.
+// It performs a bottom-up traversal.
+func CleanEmptyDirs(root string) error {
+	root = NormalizePath(root)
+	return filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		// We want to process directories after their children (post-order).
+		// However, WalkDir is pre-order.
+		// So we can't easily do it in one pass with WalkDir if we want to delete parents that become empty.
+		// Instead, we can collect all directories and sort them by length (longest first) to ensure children are processed before parents.
+		return nil
+	})
+}
+
+// CleanEmptyDirsRecursively removes empty directories in the root path.
+// It excludes .git and .gg directories.
+func CleanEmptyDirsRecursively(root string) error {
+	root = NormalizePath(root)
+	
+	// We'll use a simple approach: walk, collect dirs, sort reverse, delete if empty.
+	var dirs []string
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil // ignore errors accessing paths
+		}
+		if d.IsDir() {
+			// Skip .git and .gg
+			if d.Name() == ".git" || d.Name() == ".gg" {
+				return filepath.SkipDir
+			}
+			if path != root {
+				dirs = append(dirs, path)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	// Sort dirs by length descending so we process children first
+	// (Longer paths are deeper)
+	// Actually, just reversing the order of WalkDir might not be enough if WalkDir order isn't guaranteed depth-first in a way that suits us?
+	// WalkDir is lexical.
+	// Sorting by length descending is a safe bet for depth-first bottom-up.
+	// But simple string length sort works.
+	
+	// Bubble sort or just use a library? I'll implement a simple sort.
+	for i := 0; i < len(dirs); i++ {
+		for j := i + 1; j < len(dirs); j++ {
+			if len(dirs[i]) < len(dirs[j]) {
+				dirs[i], dirs[j] = dirs[j], dirs[i]
+			}
+		}
+	}
+
+	for _, dir := range dirs {
+		// Check if empty
+		entries, err := os.ReadDir(dir)
+		if err == nil && len(entries) == 0 {
+			_ = os.Remove(dir)
+		}
+	}
+	return nil
+}

@@ -418,6 +418,9 @@ Checks out a specific branch of a repository.
 **Usage:**
 ```bash
 gg checkout backend feature-auth
+
+# Preserve empty directories
+gg checkout backend feature-auth --keep-empty-dirs
 ```
 
 **What it does:**
@@ -425,6 +428,7 @@ gg checkout backend feature-auth
 2. Validates repository and branch exist
 3. Checks out the target branch
 4. You see the flattened view of that repository
+5. Recursively removes empty directories (unless `--keep-empty-dirs` is used)
 
 **Equivalent to:**
 ```bash

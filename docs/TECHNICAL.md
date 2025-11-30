@@ -405,6 +405,9 @@ for node in graph:
    - git checkout gitgroove/repos/<n>/branches/<b>
 
 6. Working tree now shows flattened view
+
+7. Clean up empty directories (unless requested otherwise)
+   - Recursively remove empty directories to keep workspace clean
 ```
 
 **Critical:** Always checkout system branch first to ensure metadata is fresh.
