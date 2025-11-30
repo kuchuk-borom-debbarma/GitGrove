@@ -10,14 +10,14 @@ import (
 	gitUtil "github.com/kuchuk-borom-debbarma/GitGrove/core/internal/util/git"
 )
 
-// Stage adds file contents to the staging area, with GitGrove-specific validations.
+// Add adds file contents to the staging area, with GitGrove-specific validations.
 //
 // It ensures that:
 // 1. We are inside a valid Git repository.
 // 2. We are on a valid GitGrove repo branch (gitgroove/repos/...).
 // 3. The files exist and are within the SPECIFIC repository bound to the current branch.
 // 4. The files do NOT belong to a nested GitGrove repository.
-func Stage(rootAbsPath string, files []string) error {
+func Add(rootAbsPath string, files []string) error {
 	if !gitUtil.IsInsideGitRepo(rootAbsPath) {
 		return fmt.Errorf("not a git repository: %s", rootAbsPath)
 	}

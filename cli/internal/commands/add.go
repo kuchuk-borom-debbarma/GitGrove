@@ -9,21 +9,21 @@ import (
 	"github.com/kuchuk-borom-debbarma/GitGrove/core"
 )
 
-type StageCommand struct{}
+type AddCommand struct{}
 
 func init() {
-	registerCommand(&StageCommand{})
+	registerCommand(&AddCommand{})
 }
 
-func (c *StageCommand) Command() string {
-	return "stage"
+func (c *AddCommand) Command() string {
+	return "add"
 }
 
-func (c *StageCommand) Description() string {
-	return "Stage files with GitGrove validation (skips out-of-bound files with warning)"
+func (c *AddCommand) Description() string {
+	return "Add files with GitGrove validation (skips out-of-bound files with warning)"
 }
 
-func (c *StageCommand) ValidateArgs(args map[string]any) error {
+func (c *AddCommand) ValidateArgs(args map[string]any) error {
 	val, ok := args["args"]
 	if !ok {
 		return fmt.Errorf("missing required argument: files")
@@ -37,7 +37,7 @@ func (c *StageCommand) ValidateArgs(args map[string]any) error {
 	return nil
 }
 
-func (c *StageCommand) Execute(args map[string]any) error {
+func (c *AddCommand) Execute(args map[string]any) error {
 	files := args["args"].([]string)
 
 	cwd, err := os.Getwd()
@@ -64,8 +64,8 @@ func (c *StageCommand) Execute(args map[string]any) error {
 		}
 	}
 
-	if err := core.Stage(root, absFiles); err != nil {
-		return fmt.Errorf("stage failed: %w", err)
+	if err := core.Add(root, absFiles); err != nil {
+		return fmt.Errorf("add failed: %w", err)
 	}
 
 	return nil

@@ -100,7 +100,7 @@ func (interactiveCommand) Execute(args map[string]any) error {
 		fmt.Println("3. Link Repositories")
 		fmt.Println("4. Create Branch")
 		fmt.Println("5. Checkout Branch")
-		fmt.Println("6. Stage Files")
+		fmt.Println("6. Add Files")
 		fmt.Println("7. Commit Changes")
 		fmt.Println("8. Move Repository")
 		fmt.Println("9. Exit")
@@ -121,7 +121,7 @@ func (interactiveCommand) Execute(args map[string]any) error {
 		case "5":
 			handleCheckout(reader, absPath)
 		case "6":
-			handleStage(reader, absPath)
+			handleAdd(reader, absPath)
 		case "7":
 			handleCommit(reader, absPath)
 		case "8":
@@ -230,8 +230,8 @@ func handleCheckout(reader *bufio.Reader, rootPath string) {
 	}
 }
 
-func handleStage(reader *bufio.Reader, rootPath string) {
-	fmt.Print("Enter file paths to stage (comma separated, or '.' for all): ")
+func handleAdd(reader *bufio.Reader, rootPath string) {
+	fmt.Print("Enter file paths to add (comma separated, or '.' for all): ")
 	input, _ := reader.ReadString('\n')
 	input = strings.TrimSpace(input)
 
@@ -250,10 +250,10 @@ func handleStage(reader *bufio.Reader, rootPath string) {
 		}
 	}
 
-	if err := core.Stage(rootPath, files); err != nil {
-		fmt.Printf("Error staging files: %v\n", err)
+	if err := core.Add(rootPath, files); err != nil {
+		fmt.Printf("Error adding files: %v\n", err)
 	} else {
-		fmt.Println("Files staged successfully.")
+		fmt.Println("Files added successfully.")
 	}
 }
 

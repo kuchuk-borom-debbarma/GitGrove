@@ -4,8 +4,8 @@ import (
 	"testing"
 )
 
-func TestStageCmd_ValidateArgs(t *testing.T) {
-	cmd := StageCommand{}
+func TestStageCommand_ValidateArgs(t *testing.T) {
+	cmd := &AddCommand{}
 
 	tests := []struct {
 		name    string
