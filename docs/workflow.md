@@ -25,18 +25,18 @@ gitgrove register --name backend --path ./backend
 
 ### What happens behind the scenes?
 1.  **Marker Creation**: GitGrove creates the `./backend` directory (if missing) and writes a `.gitgroverepo` file containing the name "backend".
-2.  **Metadata Update**: The repo's path is recorded in the `gitgroove/system` branch.
-3.  **Branch Seeding**: An orphan branch `gitgroove/repos/backend/branches/main` is created. Crucially, **this branch is seeded with the `.gitgroverepo` file** so that switching to it doesn't delete the directory.
+2.  **Metadata Update**: The repo's path and marker file are recorded in the `gitgroove/system` branch.
+3.  **Branch Seeding**: A repo branch `gitgroove/repos/backend/branches/main` is created. Crucially, **this branch is seeded with the `.gitgroverepo` file** so that switching to it doesn't delete the directory.
 
 ### Important: Commit the Marker!
-After registering, you will see an untracked file: `backend/.gitgroverepo`. **You must commit this to your current branch (e.g., `main`)**.
+After registering, you will see an untracked file: `backend/.gitgroverepo`. **You should commit this to your current working branch (e.g., `main`)** for visibility across branches.
 
 ```bash
 git add backend/.gitgroverepo
 git commit -m "Register backend repo"
 ```
 
-> **Why?** If you don't commit it, `main` doesn't know about the file. When you switch to the `backend` branch (which *does* have the file), Git might complain or handle it unpredictably. Keeping it tracked in both branches ensures smooth switching.
+> **Note**: The marker is automatically tracked in the `gitgroove/system` branch and the repo's branch. Committing it to your working branch (like `main`) ensures it's visible when you're not on a GitGrove branch.
 
 ---
 

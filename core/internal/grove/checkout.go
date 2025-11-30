@@ -9,8 +9,8 @@ import (
 
 // CheckoutRepo switches the user's working tree to a specific branch of a nested repository.
 //
-// It supports the branch path structure:
-// gitgroove/repos/<a>/children/<b>/branches/<branchName>
+// It uses the flat branch naming structure:
+// gitgroove/repos/<repoName>/branches/<branchName>
 func CheckoutRepo(rootAbsPath, repoName, branchName string) error {
 	// 1. Validate environment
 	if err := validateSwitchEnvironment(rootAbsPath); err != nil {

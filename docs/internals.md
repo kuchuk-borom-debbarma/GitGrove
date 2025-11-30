@@ -34,11 +34,11 @@ Here is a deep dive into what happens under the hood for each command.
 
 ### `init`
 Initializes GitGrove in an existing Git repository.
-*   **Action**: Creates the `gitgroove/system` branch.
+*   **Action**: Creates the `gitgroove/system` branch and `.gg/` metadata directory.
 *   **Git Commands**:
-    *   `git hash-object -w --stdin`: Creates an empty tree object.
-    *   `git commit-tree`: Creates an initial commit for the system branch.
-    *   `git update-ref`: Creates `refs/heads/gitgroove/system` pointing to that commit.
+    *   `git checkout -b gitgroove/system`: Creates and checks out the system branch (branches from current HEAD).
+    *   `git add .gg`: Stages the metadata directory structure.
+    *   `git commit`: Creates the initial commit with message "Initialize GitGrove system branch".
 
 ### `register`
 Registers a subdirectory as a GitGrove repository.
@@ -61,9 +61,10 @@ Defines a parent-child relationship (purely metadata).
 
 ### `switch <repo> <branch>`
 Switches the user's working directory to a specific repo branch.
-*   **Action**: Checks out the flattened branch.
+*   **Action**: First loads metadata from `gitgroove/system`, then checks out the target repo branch.
 *   **Git Commands**:
-    *   `git checkout gitgroove/repos/<repo>/branches/<branch>`: Standard git checkout.
+    *   `git checkout gitgroove/system`: Load authoritative metadata (CRITICAL first step).
+    *   `git checkout gitgroove/repos/<repo>/branches/<branch>`: Check out the target repo branch.
     *   Since the branch was created with the subdirectory as its root, `git checkout` naturally replaces your working directory with just those files.
 
 ### `cd <target>` / `ls`
