@@ -38,10 +38,9 @@ func Move(rootAbsPath, repoName, newRelPath string) error {
 	}
 
 	// 2. Resolve gitgroove/internal ref
-	internalRef := "refs/heads/gitgroove/internal"
-	oldTip, err := gitUtil.ResolveRef(rootAbsPath, internalRef)
+	oldTip, err := gitUtil.ResolveRef(rootAbsPath, InternalBranchRef)
 	if err != nil {
-		return fmt.Errorf("failed to resolve %s: %w", internalRef, err)
+		return fmt.Errorf("failed to resolve %s: %w", InternalBranchRef, err)
 	}
 
 	// 3. Load existing repos from system ref
@@ -103,10 +102,10 @@ func Move(rootAbsPath, repoName, newRelPath string) error {
 	}
 
 	// 7. Atomically update gitgroove/internal
-	if err := gitUtil.UpdateRef(rootAbsPath, internalRef, newTip, oldTip); err != nil {
+	if err := gitUtil.UpdateRef(rootAbsPath, InternalBranchRef, newTip, oldTip); err != nil {
 		// Attempt rollback of physical move
 		_ = os.Rename(newAbsPath, oldAbsPath)
-		return fmt.Errorf("failed to update %s (concurrent modification?): %w", internalRef, err)
+		return fmt.Errorf("failed to update %s (concurrent modification?): %w", InternalBranchRef, err)
 	}
 
 	log.Info().Msg("Successfully moved repository")
@@ -146,11 +145,5 @@ func updateRepoPathInSystem(rootAbsPath, oldTip, repoName, newPath string) (stri
 }
 
 func validateMoveEnvironment(rootAbsPath string) error {
-	if !gitUtil.IsInsideGitRepo(rootAbsPath) {
-		return fmt.Errorf("not a git repository: %s", rootAbsPath)
-	}
-	if err := gitUtil.VerifyCleanState(rootAbsPath); err != nil {
-		return fmt.Errorf("working tree is not clean: %w", err)
-	}
-	return nil
+	return validateCleanGitRepo(rootAbsPath)
 }

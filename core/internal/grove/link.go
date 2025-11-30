@@ -18,7 +18,6 @@ It operates atomically against the latest committed state of gitgroove/internal.
 High-Level Responsibility:
   - Connects registered repos into a parent→child tree.
   - Stores relationships in .gg/repos/<repo>/parent and .gg/repos/<parent>/children/<child>.
-  - Rebuilds derived repo branches (gitgroove/repos/<repo>/branches/main) based on ancestry.
 
 Guarantees:
   - Atomic: all relationships are applied or none.
@@ -36,10 +35,9 @@ func Link(rootAbsPath string, relationships map[string]string) error {
 	}
 
 	// 2. Read latest gitgroove/internal commit
-	internalRef := "refs/heads/gitgroove/internal"
-	oldTip, err := gitUtil.ResolveRef(rootAbsPath, internalRef)
+	oldTip, err := gitUtil.ResolveRef(rootAbsPath, InternalBranchRef)
 	if err != nil {
-		return fmt.Errorf("failed to resolve %s (is GitGrove initialized?): %w", internalRef, err)
+		return fmt.Errorf("failed to resolve %s (is GitGrove initialized?): %w", InternalBranchRef, err)
 	}
 
 	// 3. Load existing repo metadata
@@ -60,37 +58,24 @@ func Link(rootAbsPath string, relationships map[string]string) error {
 	}
 
 	// 7. Atomically update gitgroove/internal
-	if err := gitUtil.UpdateRef(rootAbsPath, internalRef, newTip, oldTip); err != nil {
-		return fmt.Errorf("failed to update %s (concurrent modification?): %w", internalRef, err)
+	if err := gitUtil.UpdateRef(rootAbsPath, InternalBranchRef, newTip, oldTip); err != nil {
+		return fmt.Errorf("failed to update %s (concurrent modification?): %w", InternalBranchRef, err)
 	}
 
-	// If we are currently on the internal branch, we must update the working tree to match the new commit.
 	currentBranch, err := gitUtil.GetCurrentBranch(rootAbsPath)
-	if err == nil && currentBranch == "gitgroove/internal" {
+	if err == nil && currentBranch == InternalBranchName {
 		log.Info().Msg("Updating working tree to match new internal state")
 		if err := gitUtil.ResetHard(rootAbsPath, "HEAD"); err != nil {
 			return fmt.Errorf("failed to update working tree: %w", err)
 		}
 	}
 
-	// 8. Build derived branches.
-	// REMOVED: We no longer build derived branches. Repo branches are patch-based and only contain user commits.
-	// if err := rebuildDerivedBranches(rootAbsPath, newTip); err != nil {
-	// 	return err
-	// }
-
 	log.Info().Msg("Successfully linked repositories")
 	return nil
 }
 
 func validateLinkEnvironment(rootAbsPath string) error {
-	if !gitUtil.IsInsideGitRepo(rootAbsPath) {
-		return fmt.Errorf("not a git repository: %s", rootAbsPath)
-	}
-	if err := gitUtil.VerifyCleanState(rootAbsPath); err != nil {
-		return fmt.Errorf("working tree is not clean: %w", err)
-	}
-	return nil
+	return validateCleanGitRepo(rootAbsPath)
 }
 
 func applyRelationships(rootAbsPath, oldTip string, relationships map[string]string) (string, error) {

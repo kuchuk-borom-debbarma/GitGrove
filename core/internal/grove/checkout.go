@@ -24,7 +24,7 @@ func CheckoutRepo(rootAbsPath, repoName, branchName string, keepEmptyDirs, flat 
 
 	// 2. Checkout gitgroove/internal to load authoritative metadata
 	log.Info().Msg("Checking out gitgroove/internal to load metadata")
-	if err := gitUtil.Checkout(rootAbsPath, "gitgroove/internal"); err != nil {
+	if err := gitUtil.Checkout(rootAbsPath, InternalBranchName); err != nil {
 		return fmt.Errorf("failed to checkout gitgroove/internal: %w", err)
 	}
 

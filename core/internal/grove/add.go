@@ -29,7 +29,7 @@ func Add(rootAbsPath string, files []string) error {
 	}
 
 	// 1.1. Protection: Reject staging on gitgroove/internal branch
-	if currentBranch == "gitgroove/internal" {
+	if currentBranch == InternalBranchName {
 		return fmt.Errorf("cannot stage files on gitgroove/internal branch - this branch is managed by GitGrove and should not be modified directly")
 	}
 

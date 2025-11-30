@@ -32,10 +32,9 @@ func Register(rootAbsPath string, repos map[string]string) error {
 	}
 
 	// 2. Read latest gitgroove/internal commit
-	internalRef := "refs/heads/gitgroove/internal"
-	oldTip, err := gitUtil.ResolveRef(rootAbsPath, internalRef)
+	oldTip, err := gitUtil.ResolveRef(rootAbsPath, InternalBranchRef)
 	if err != nil {
-		return fmt.Errorf("failed to resolve %s (is GitGrove initialized?): %w", internalRef, err)
+		return fmt.Errorf("failed to resolve %s (is GitGrove initialized?): %w", InternalBranchRef, err)
 	}
 
 	// 3. Load existing repo metadata
@@ -56,14 +55,14 @@ func Register(rootAbsPath string, repos map[string]string) error {
 	}
 
 	// 7. Atomically update gitgroove/internal
-	if err := gitUtil.UpdateRef(rootAbsPath, internalRef, newTip, oldTip); err != nil {
-		return fmt.Errorf("failed to update %s (concurrent modification?): %w", internalRef, err)
+	if err := gitUtil.UpdateRef(rootAbsPath, InternalBranchRef, newTip, oldTip); err != nil {
+		return fmt.Errorf("failed to update %s (concurrent modification?): %w", InternalBranchRef, err)
 	}
 
 	// If we are currently on the internal branch, we must update the working tree to match the new commit.
 	// Otherwise, the working tree will appear "dirty" (missing the new files we just committed).
 	currentBranch, err := gitUtil.GetCurrentBranch(rootAbsPath)
-	if err == nil && currentBranch == "gitgroove/internal" {
+	if err == nil && currentBranch == InternalBranchName {
 		log.Info().Msg("Updating working tree to match new internal state")
 		if err := gitUtil.ResetHard(rootAbsPath, "HEAD"); err != nil {
 			return fmt.Errorf("failed to update working tree: %w", err)
@@ -119,13 +118,7 @@ func Register(rootAbsPath string, repos map[string]string) error {
 }
 
 func validateRegisterEnvironment(rootAbsPath string) error {
-	if !gitUtil.IsInsideGitRepo(rootAbsPath) {
-		return fmt.Errorf("not a git repository: %s", rootAbsPath)
-	}
-	if err := gitUtil.VerifyCleanState(rootAbsPath); err != nil {
-		return fmt.Errorf("working tree is not clean: %w", err)
-	}
-	return nil
+	return validateCleanGitRepo(rootAbsPath)
 }
 
 // canonicalizePath normalizes and converts a path to be relative to rootAbsPath.

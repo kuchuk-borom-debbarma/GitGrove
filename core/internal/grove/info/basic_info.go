@@ -8,10 +8,10 @@ import (
 )
 
 type BasicInfo struct {
-	RootPath      string
-	CurrentBranch string
-	IsClean       bool
-	InternalCommit  string
+	RootPath       string
+	CurrentBranch  string
+	IsClean        bool
+	InternalCommit string
 }
 
 func GetBasicInfo(rootAbsPath string) (*BasicInfo, error) {
@@ -29,16 +29,16 @@ func GetBasicInfo(rootAbsPath string) (*BasicInfo, error) {
 		isClean = false
 	}
 
-	internalRef := "refs/heads/gitgroove/internal"
-	systemCommit, err := gitUtil.ResolveRef(rootAbsPath, internalRef)
+	// Note: Using string literal here to avoid import cycle with grove package
+	systemCommit, err := gitUtil.ResolveRef(rootAbsPath, "refs/heads/gitgroove/internal")
 	if err != nil {
 		systemCommit = "not initialized"
 	}
 
 	return &BasicInfo{
-		RootPath:      rootAbsPath,
-		CurrentBranch: strings.TrimSpace(branch), // Changed from 'branch' to 'strings.TrimSpace(branch)' and fixed variable name
-		IsClean:       isClean,
-		InternalCommit:  systemCommit,
+		RootPath:       rootAbsPath,
+		CurrentBranch:  strings.TrimSpace(branch), // Changed from 'branch' to 'strings.TrimSpace(branch)' and fixed variable name
+		IsClean:        isClean,
+		InternalCommit: systemCommit,
 	}, nil
 }

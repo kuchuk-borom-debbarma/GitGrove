@@ -18,7 +18,7 @@ func SwitchToSystem(rootAbsPath string) error {
 	}
 
 	// 2. Checkout system branch
-	if err := gitUtil.Checkout(rootAbsPath, "gitgroove/internal"); err != nil {
+	if err := gitUtil.Checkout(rootAbsPath, InternalBranchName); err != nil {
 		return fmt.Errorf("failed to checkout system branch: %w", err)
 	}
 

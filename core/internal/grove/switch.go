@@ -103,7 +103,7 @@ func Switch(rootAbsPath, repoName, branch string) error {
 	// We use "force" checkout? No, we already validated clean state.
 	// Standard checkout is fine.
 	log.Info().Msg("Checking out gitgroove/internal to load metadata")
-	if err := gitUtil.Checkout(rootAbsPath, "gitgroove/internal"); err != nil {
+	if err := gitUtil.Checkout(rootAbsPath, InternalBranchName); err != nil {
 		return fmt.Errorf("failed to checkout gitgroove/internal: %w", err)
 	}
 

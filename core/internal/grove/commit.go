@@ -31,7 +31,7 @@ func Commit(rootAbsPath, message string) error {
 	}
 
 	// 2.1. Protection: Reject commits on gitgroove/internal branch
-	if currentBranch == "gitgroove/internal" {
+	if currentBranch == InternalBranchName {
 		return fmt.Errorf("cannot commit on gitgroove/internal branch - this branch is managed by GitGrove and should not be modified directly")
 	}
 
