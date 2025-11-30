@@ -272,4 +272,5 @@ gg checkout <repo> <branch> [--keep-empty-dirs] # Switch repo branch
 # Information
 gg info                              # Show status
 gg move <repo> <new-path>            # Relocate repository
+gg push <repo|*>                     # Push to remote
 ```

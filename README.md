@@ -84,6 +84,7 @@ go build -o gg ./cmd/gg
 | `gg cd <target>` | Navigate to repo, parent (`..`), or System Root (`~`) |
 | `gg ls` | List child repositories |
 | `gg info` | Show project status |
+| `gg push <repo\|*>` | Push repositories to remote |
 
 ## When to Use GitGrove
 

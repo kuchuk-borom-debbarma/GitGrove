@@ -113,10 +113,11 @@ func (interactiveCommand) Execute(args map[string]any) error {
 		fmt.Println("    8. Add Files     - Stage changes")
 		fmt.Println("    9. Commit        - Commit staged changes")
 		fmt.Println("   10. Create Branch - Create a new branch")
+		fmt.Println("   11. Push          - Push to remote")
 		fmt.Println()
-		fmt.Println("   11. Exit")
+		fmt.Println("   12. Exit")
 		fmt.Println()
-		fmt.Print("Select an option (1-11): ")
+		fmt.Print("Select an option (1-12): ")
 
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
@@ -142,14 +143,16 @@ func (interactiveCommand) Execute(args map[string]any) error {
 			handleCommit(reader, absPath)
 		case "10":
 			handleBranch(reader, absPath)
-		case "11", "exit", "quit", "q":
+		case "11":
+			handlePush(reader, absPath)
+		case "12", "exit", "quit", "q":
 			fmt.Println("✓ Exiting GitGrove. Happy coding!")
 			return nil
 		case "help", "h", "?":
 			// Show help (already shown in menu)
 			continue
 		default:
-			fmt.Println("❌ Invalid option. Please enter a number 1-11.")
+			fmt.Println("❌ Invalid option. Please enter a number 1-12.")
 		}
 	}
 }
@@ -381,6 +384,41 @@ func handleMove(reader *bufio.Reader, rootPath string) {
 		fmt.Printf("Error moving repository: %v\n", err)
 	} else {
 		fmt.Println("Repository moved successfully.")
+	}
+}
+
+func handlePush(reader *bufio.Reader, rootPath string) {
+	fmt.Println("Select repositories to push:")
+	fmt.Println("1. All repositories (*)")
+	fmt.Println("2. Select specific repository")
+	fmt.Print("Choice: ")
+
+	choice, _ := reader.ReadString('\n')
+	choice = strings.TrimSpace(choice)
+
+	var targets []string
+
+	if choice == "1" || choice == "*" {
+		targets = []string{"*"}
+	} else if choice == "2" {
+		repoName, err := selectRepo(reader, rootPath, "Select repository to push")
+		if err != nil {
+			fmt.Printf("Error selecting repo: %v\n", err)
+			return
+		}
+		if repoName == "" {
+			return
+		}
+		targets = []string{repoName}
+	} else {
+		fmt.Println("Invalid choice.")
+		return
+	}
+
+	if err := core.Push(rootPath, targets); err != nil {
+		fmt.Printf("Error pushing: %v\n", err)
+	} else {
+		fmt.Println("Push completed successfully.")
 	}
 }
 
