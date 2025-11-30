@@ -3,6 +3,7 @@ package grove
 import (
 	"fmt"
 
+	"github.com/kuchuk-borom-debbarma/GitGrove/core/internal/util/file"
 	gitUtil "github.com/kuchuk-borom-debbarma/GitGrove/core/internal/util/git"
 	"github.com/rs/zerolog/log"
 )
@@ -11,7 +12,7 @@ import (
 //
 // It uses the flat branch naming structure:
 // gitgroove/repos/<repoName>/branches/<branchName>
-func CheckoutRepo(rootAbsPath, repoName, branchName string) error {
+func CheckoutRepo(rootAbsPath, repoName, branchName string, keepEmptyDirs bool) error {
 	// 1. Validate environment
 	if err := validateSwitchEnvironment(rootAbsPath); err != nil {
 		return err
@@ -50,6 +51,15 @@ func CheckoutRepo(rootAbsPath, repoName, branchName string) error {
 	log.Info().Msgf("Switching to %s", shortBranchName)
 	if err := gitUtil.Checkout(rootAbsPath, shortBranchName); err != nil {
 		return fmt.Errorf("failed to checkout target branch: %w", err)
+	}
+
+	// 8. Clean up empty directories if requested
+	if !keepEmptyDirs {
+		log.Info().Msg("Cleaning up empty directories...")
+		if err := file.CleanEmptyDirsRecursively(rootAbsPath); err != nil {
+			// Log warning but don't fail the checkout
+			log.Warn().Err(err).Msg("Failed to clean up empty directories")
+		}
 	}
 
 	log.Info().Msgf("Successfully switched to repo '%s' on branch '%s'", repoName, branchName)

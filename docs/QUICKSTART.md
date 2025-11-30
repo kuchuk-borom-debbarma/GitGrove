@@ -267,7 +267,7 @@ gg ls                                # List children
 gg add <files>                       # Stage changes
 gg commit -m "message"               # Commit changes
 gg branch <branch-name>              # Create repo branch
-gg checkout <repo> <branch>          # Switch repo branch
+gg checkout <repo> <branch> [--keep-empty-dirs] # Switch repo branch
 
 # Information
 gg info                              # Show status

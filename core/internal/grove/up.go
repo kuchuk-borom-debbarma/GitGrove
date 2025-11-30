@@ -42,5 +42,8 @@ func Up(rootAbsPath string) error {
 	// We use the default branch for now (main)
 	// TODO: Track last active branch for each repo?
 	branchName := "main"
-	return CheckoutRepo(rootAbsPath, parentName, branchName)
+	if err := CheckoutRepo(rootAbsPath, parentName, branchName, false); err != nil {
+		return fmt.Errorf("failed to switch to parent repo '%s': %w", parentName, err)
+	}
+	return nil
 }

@@ -435,7 +435,7 @@ func ParseRepoFromBranch(branchName string) (string, error) {
 func Init(repoPath string) error
 func IsInsideGitRepo(path string) bool
 func GetCurrentBranch(repoPath string) (string, error)
-func Checkout(repoPath, branch string) error
+func Checkout(repoPath, branch string, keepEmptyDirs bool) error
 
 // Validation
 func VerifyCleanState(path string) error
@@ -1012,6 +1012,11 @@ func Switch(rootAbsPath, repoName, branch string) error {
     shortBranchName := strings.TrimPrefix(fullBranchRef, "refs/heads/")
     if err := gitUtil.Checkout(rootAbsPath, shortBranchName); err != nil {
         return fmt.Errorf("failed to checkout target branch: %w", err)
+    }
+
+    // 5. Cleanup empty directories
+    if !keepEmptyDirs {
+        fileUtil.CleanEmptyDirsRecursively(rootAbsPath)
     }
     
     return nil
