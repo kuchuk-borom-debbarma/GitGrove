@@ -1,145 +1,238 @@
 # GitGrove
 
-### *Multi-Repository Version Control on Top of Git*
+*Manage monorepos like a filesystem, version them like Git.*
 
-GitGrove is a powerful tool that transforms a single Git repository into a **structured forest of independent repositories**. It allows you to manage complex monorepos with the simplicity of a single Git backend, while giving each component its own isolated history, lifecycle, and workspace.
+GitGrove lets you work on specific parts of a monorepo in **isolation**, while maintaining a unified Git history. Think of it as `cd` and `ls` for your repository structure, with Git's power underneath.
 
-To Git, everything remains a normal repository. To you, your project becomes a hierarchy of focused workspaces.
+---
+
+## Quick Example
+
+```bash
+# You have a monorepo with this structure:
+# .
+# ├── api/
+# ├── web/
+# └── services/
+#     ├── auth/
+#     └── payments/
+
+# With GitGrove, you can:
+gitgrove ls                    # List repos at current level
+gitgrove cd services/auth      # Jump into auth service
+gitgrove info                  # See where you are in the tree
+gitgrove cd ..                 # Go back up
+```
 
 ---
 
 ## Why GitGrove?
 
-Managing large monorepos often leads to:
-*   **Noise**: Every `git status` shows irrelevant changes from other teams.
-*   **Complexity**: Submodules are painful; subtrees are complex.
-*   **Loss of Context**: It's hard to tell where one service ends and another begins.
+**The Problem:** Large monorepos are noisy. Running `git status` shows 100 changed files, but you only care about 3. Every commit touches multiple services. Finding histor is hard.
 
-**GitGrove solves this by:**
-*   **Virtualizing Repositories**: Treat any subdirectory as a standalone repo.
-*   **Flattening Views**: When you work on `backend`, your root directory *becomes* `backend`. No more `cd backend/src/...`.
-*   **Preserving History**: Each virtual repo has its own commit history, isolated from the rest.
-*   **Staying 100% Git Compatible**: Under the hood, it's just Git. You can push, pull, and merge as usual.
-
----
-
-## Who Is It For?
-
-*   **Microservices Teams**: Manage 50 services in one repo without the chaos.
-*   **Full-Stack Developers**: Keep frontend and backend coupled in versioning but decoupled in development.
-*   **Modular Projects**: Library authors managing multiple packages.
+**The Solution:** GitGrove creates **virtual repositories** within your monorepo. Each service gets:
+- ✅ Its own isolated workspace
+- ✅ Its own commit history  
+- ✅ Flattened view (work on `auth/` as if it's the repo root)
+- ✅ 100% Git compatibility underneath
 
 ---
 
 ## Installation
 
-Currently, GitGrove is built from source.
+```bash
+git clone https://github.com/kuchuk-borom-debbarma/GitGrove.git
+cd GitGrove/cli
+go build -o ../gitgrove ./cmd/main.go
 
-1.  **Clone the repository**:
-    ```bash
-    git clone https://github.com/kuchuk-borom-debbarma/GitGrove.git
-    cd GitGrove
-    ```
-
-2.  **Build the CLI**:
-    ```bash
-    cd cli
-    go build -o ../gitgrove ./cmd/main.go
-    ```
-
-3.  **Add to PATH** (Optional):
-    ```bash
-    export PATH=$PATH:$(pwd)/..
-    ```
+# Optionally add to PATH
+export PATH=$PATH:$(pwd)/..
+```
 
 ---
 
-## User Guide
+## Getting Started
 
-### 1. Initialization
-Turn any Git repository into a GitGrove project.
+### 1. Initialize in Your Repo
 
 ```bash
-# Inside your git repo
+cd your-monorepo/
 gitgrove init
 ```
-This sets up the internal metadata tracking on a hidden `gitgroove/system` branch.
 
-### 2. Registering Repositories
-Tell GitGrove which folders should be treated as repositories.
+This creates a `gitgroove/system` branch to track metadata.
 
-```bash
-# Register 'backend' located at ./backend
-gitgrove register --name backend --path backend
+### 2. Register Your Services
 
-# Register 'frontend' located at ./web/ui
-gitgrove register --name frontend --path web/ui
+Let's say you have a microservices app:
+
+```
+ecommerce/
+├── api/              # REST API
+├── web/              # React frontend
+└── services/
+    ├── auth/         # Authentication
+    ├── payments/     # Payment processing
+    └── inventory/    # Stock management
 ```
 
-### 3. Creating Hierarchy
-Link repositories to define structure. This is useful for navigation.
+Register them:
 
 ```bash
-# 'service-a' is a child of 'backend'
-gitgrove link --child service-a --parent backend
+gitgrove register --name api --path api
+gitgrove register --name web --path web
+gitgrove register --name services --path services
+gitgrove register --name auth --path services/auth
+gitgrove register --name payments --path services/payments
+gitgrove register --name inventory --path services/inventory
 ```
 
-### 4. Navigation & Workflow
-This is where GitGrove shines. You can move between repositories seamlessly.
+### 3. Define Hierarchy (Optional)
 
-#### Interactive Mode
-The easiest way to explore.
+Link repos to create a tree:
+
+```bash
+gitgrove link --child auth --parent services
+gitgrove link --child payments --parent services
+gitgrove link --child inventory --parent services
+```
+
+### 4. Start Working
+
+**Switch to a service:**
+```bash
+gitgrove switch auth main
+# Your working directory now shows ONLY auth/ files at the root!
+```
+
+**Navigate like a filesystem:**
+```bash
+gitgrove ls              # Shows: (no children) - auth is a leaf
+gitgrove cd ..           # Go up to 'services'
+gitgrove ls              # Shows: auth, payments, inventory
+gitgrove cd payments     # Jump to payments service
+```
+
+**See where you are:**
+```bash
+gitgrove info
+```
+Output:
+```
+GitGrove Info
+=============
+...
+Registered Repositories:
+------------------------
+└── services
+    ├── auth
+    ├── inventory
+    └── * payments [CURRENT]  ← You are here
+```
+
+**Make changes:**
+```bash
+# Edit some files
+echo "new code" >> processor.go
+
+gitgrove add .
+gitgrove commit "Add payment retry logic"
+# This commit ONLY affects the payments service!
+```
+
+---
+
+## Command Reference
+
+### Core Commands
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `init` | Initialize GitGrove | `gitgrove init` |
+| `info` | Show repo tree and current location | `gitgrove info` |
+| `register` | Register a directory as a repo | `gitgrove register --name auth --path services/auth` |
+| `link` | Define parent-child relationship | `gitgrove link --child auth --parent services` |
+| `switch` | Switch to a repo branch | `gitgrove switch auth main` |
+
+### Navigation
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `ls` | List child repositories | `gitgrove ls` |
+| `cd <repo>` | Navigate to a child repo | `gitgrove cd auth` |
+| `cd ..` | Navigate to parent repo | `gitgrove cd ..` |
+
+### Development
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `add` | Stage files (scoped to current repo) | `gitgrove add .` |
+| `commit` | Commit changes | `gitgrove commit "Fix bug"` |
+| `branch` | Create a repo-specific branch | `gitgrove branch auth feature-x` |
+| `move` | Relocate a repo | `gitgrove move auth services/auth-v2` |
+
+### Interactive Mode
+
 ```bash
 gitgrove interactive
 ```
-This launches a menu where you can browse your repo hierarchy and perform actions.
 
-#### Command Line Navigation
-*   **Check Status**: See where you are and the full hierarchy.
-    ```bash
-    gitgrove info
-    ```
-    *Output:*
-    ```text
-    ...
-    └── backend
-        ├── service-a * [CURRENT]
-        └── service-b
-    ```
-
-*   **Switch Context**: Jump to a specific repo.
-    ```bash
-    gitgrove switch backend main
-    ```
-    *Your working directory now contains ONLY the files from `backend`.*
-
-*   **Move Up/Down**: Traverse the tree like a filesystem.
-    ```bash
-    gitgrove ls            # List child repositories
-    gitgrove cd service-b  # Go to service-b
-    gitgrove cd ..         # Go up to parent
-    ```
-
-### 5. Daily Work
-Work exactly as you would in Git, but with GitGrove's safety wrappers.
-
-*   **Stage Files**:
-    ```bash
-    gitgrove add .
-    ```
-    *Only stages files belonging to the current virtual repo.*
-
-*   **Commit**:
-    ```bash
-    gitgrove commit "Fix login bug"
-    ```
-    *Ensures you are committing to the correct repository context.*
+Launches a menu-driven interface with hierarchical navigation for all operations.
 
 ---
 
-## Technical Details
+## Real-World Workflow
 
-Want to know how the magic works? Check out our [Technical Internals Documentation](docs/internals.md).
+**Scenario:** You need to fix a bug in the auth service, then update the API that uses it.
+
+```bash
+# Start at project root
+cd ecommerce/
+
+# Navigate to auth service
+gitgrove switch auth main
+# (Working directory now contains only auth/ files)
+
+# Make your changes
+vim token_validator.go
+gitgrove add .
+gitgrove commit "Fix token expiry check"
+
+# Move to API
+gitgrove cd ..               # Go up to 'services'
+gitgrove cd ..               # Go up to root
+gitgrove cd api              # Go to API
+# (Working directory now shows only api/ files)
+
+# Update API code
+vim auth_middleware.go
+gitgrove add .
+gitgrove commit "Update to use new token validator"
+
+# See your isolated histories
+gitgrove info
+```
+
+---
+
+## How It Works
+
+GitGrove uses Git's plumbing to create "flattened" branches where a subdirectory becomes the root. When you `gitgrove switch payments main`, you're checking out `gitgroove/repos/payments/branches/main` — a special branch where `services/payments/` is the tree root.
+
+For technical details, see [docs/internals.md](docs/internals.md).
+
+---
+
+## FAQ
+
+**Q: Is this just Git submodules?**  
+A: No. Submodules are separate Git repos. GitGrove keeps everything in one repo with one unified history, but gives you isolated views.
+
+**Q: Can I still use regular Git commands?**  
+A: Yes! `git push`, `git pull`, `git merge` all work normally. GitGrove is a layer on top.
+
+**Q: What happens to my existing history?**  
+A: Nothing. GitGrove only creates new branch refs. Your main branch is untouched.
 
 ---
 

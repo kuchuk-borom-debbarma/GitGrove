@@ -94,17 +94,29 @@ func (interactiveCommand) Execute(args map[string]any) error {
 
 	// 3. Interactive Loop
 	for {
-		fmt.Println("\n--- GitGrove Interactive Session ---")
-		fmt.Println("1. Info")
-		fmt.Println("2. Register a Repository")
-		fmt.Println("3. Link Repositories")
-		fmt.Println("4. Create Branch")
-		fmt.Println("5. Checkout Branch")
-		fmt.Println("6. Add Files")
-		fmt.Println("7. Commit Changes")
-		fmt.Println("8. Move Repository")
-		fmt.Println("9. Exit")
-		fmt.Print("Select an option: ")
+		fmt.Println("\n╔══════════════════════════════════════════════════════╗")
+		fmt.Println("║         GitGrove Interactive Session                ║")
+		fmt.Println("╚══════════════════════════════════════════════════════╝")
+		fmt.Println()
+		fmt.Println("  Navigation & Info:")
+		fmt.Println("    1. Info          - Show repository tree and current location")
+		fmt.Println("    2. List (ls)     - List child repositories")
+		fmt.Println("    3. Navigate (cd) - Change to a repository")
+		fmt.Println()
+		fmt.Println("  Repository Management:")
+		fmt.Println("    4. Register      - Register a new repository")
+		fmt.Println("    5. Link          - Define parent-child relationship")
+		fmt.Println("    6. Move          - Relocate a repository")
+		fmt.Println()
+		fmt.Println("  Development:")
+		fmt.Println("    7. Switch        - Switch to a repo branch")
+		fmt.Println("    8. Add Files     - Stage changes")
+		fmt.Println("    9. Commit        - Commit staged changes")
+		fmt.Println("   10. Create Branch - Create a new branch")
+		fmt.Println()
+		fmt.Println("   11. Exit")
+		fmt.Println()
+		fmt.Print("Select an option (1-11): ")
 
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
@@ -113,24 +125,31 @@ func (interactiveCommand) Execute(args map[string]any) error {
 		case "1":
 			handleInfo(absPath)
 		case "2":
-			handleRegister(reader, absPath)
+			handleLs(absPath)
 		case "3":
-			handleLink(reader, absPath)
+			handleNavigate(reader, absPath)
 		case "4":
-			handleBranch(reader, absPath)
+			handleRegister(reader, absPath)
 		case "5":
-			handleCheckout(reader, absPath)
+			handleLink(reader, absPath)
 		case "6":
-			handleAdd(reader, absPath)
-		case "7":
-			handleCommit(reader, absPath)
-		case "8":
 			handleMove(reader, absPath)
+		case "7":
+			handleCheckout(reader, absPath)
+		case "8":
+			handleAdd(reader, absPath)
 		case "9":
-			fmt.Println("Exiting...")
+			handleCommit(reader, absPath)
+		case "10":
+			handleBranch(reader, absPath)
+		case "11", "exit", "quit", "q":
+			fmt.Println("✓ Exiting GitGrove. Happy coding!")
 			return nil
+		case "help", "h", "?":
+			// Show help (already shown in menu)
+			continue
 		default:
-			fmt.Println("Invalid option. Please try again.")
+			fmt.Println("❌ Invalid option. Please enter a number 1-11.")
 		}
 	}
 }
@@ -138,9 +157,52 @@ func (interactiveCommand) Execute(args map[string]any) error {
 func handleInfo(rootPath string) {
 	info, err := core.Info(rootPath)
 	if err != nil {
-		fmt.Printf("Error getting info: %v\n", err)
+		fmt.Printf("❌ Error getting info: %v\n", err)
 	} else {
 		fmt.Println(info)
+	}
+}
+
+func handleLs(rootPath string) {
+	children, err := core.Ls(rootPath)
+	if err != nil {
+		fmt.Printf("❌ Error listing repositories: %v\n", err)
+		return
+	}
+
+	if len(children) == 0 {
+		fmt.Println("ℹ️  No child repositories.")
+		return
+	}
+
+	fmt.Println("\n📁 Child Repositories:")
+	for _, child := range children {
+		fmt.Printf("  • %s\n", child)
+	}
+}
+
+func handleNavigate(reader *bufio.Reader, rootPath string) {
+	fmt.Println("\n🧭 Navigate:")
+	fmt.Println("  Enter '..' to go to parent")
+	fmt.Println("  Enter repository name to go to child")
+	fmt.Print("\nTarget: ")
+
+	target, _ := reader.ReadString('\n')
+	target = strings.TrimSpace(target)
+
+	if target == "" {
+		fmt.Println("❌ No target specified.")
+		return
+	}
+
+	if err := core.Cd(rootPath, target); err != nil {
+		fmt.Printf("❌ Error navigating: %v\n", err)
+	} else {
+		if target == ".." {
+			fmt.Println("✓ Moved to parent repository.")
+		} else {
+			fmt.Printf("✓ Switched to '%s'.\n", target)
+		}
 	}
 }
 
