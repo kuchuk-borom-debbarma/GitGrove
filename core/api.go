@@ -60,9 +60,18 @@ func Commit(rootAbsPath, message string) error {
 	return grove.Commit(rootAbsPath, message)
 }
 
-// Move relocates a registered repository to a new path within the project.
 func Move(rootAbsPath, repoName, newRelPath string) error {
 	return grove.Move(rootAbsPath, repoName, newRelPath)
+}
+
+// Up switches the working tree to the parent repository's branch.
+func Up(rootAbsPath string) error {
+	return grove.Up(rootAbsPath)
+}
+
+// Down switches the working tree to a child repository's branch.
+func Down(rootAbsPath, childName string) error {
+	return grove.Down(rootAbsPath, childName)
 }
 
 // Repo represents a registered repository in the public API.

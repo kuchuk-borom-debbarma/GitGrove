@@ -2,13 +2,16 @@ package info
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
 type Info struct {
-	Basic *BasicInfo
-	Repos *RepoInfo
-	Links *LinkInfo
+	Basic       *BasicInfo
+	Repos       *RepoInfo
+	Links       *LinkInfo
+	CurrentRepo string // Name of the repo we are currently inside (if any)
 }
 
 func GetInfo(rootAbsPath string) (*Info, error) {
@@ -24,10 +27,18 @@ func GetInfo(rootAbsPath string) (*Info, error) {
 
 	links := GetLinkInfo(repos)
 
+	// Detect current repo from .gitgroverepo marker in the root
+	currentRepo := ""
+	markerPath := filepath.Join(rootAbsPath, ".gitgroverepo")
+	if content, err := os.ReadFile(markerPath); err == nil {
+		currentRepo = strings.TrimSpace(string(content))
+	}
+
 	return &Info{
-		Basic: basic,
-		Repos: repos,
-		Links: links,
+		Basic:       basic,
+		Repos:       repos,
+		Links:       links,
+		CurrentRepo: currentRepo,
 	}, nil
 }
 
@@ -51,7 +62,7 @@ func (d *Info) String() string {
 	if len(d.Repos.Repos) == 0 {
 		sb.WriteString("(none)\n")
 	} else {
-		sb.WriteString(d.Links.String())
+		sb.WriteString(d.Links.String(d.CurrentRepo))
 	}
 
 	return sb.String()
