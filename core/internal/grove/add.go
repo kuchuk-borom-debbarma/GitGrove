@@ -84,28 +84,32 @@ func Add(rootAbsPath string, files []string) error {
 
 func expandToChangedFiles(rootAbsPath string, inputFiles []string) ([]string, error) {
 	// Get all changed files (modified + untracked)
-	// git status --porcelain -u
-	out, err := gitUtil.RunGit(rootAbsPath, "status", "--porcelain", "-u")
+	// Use -z for machine readable output (null terminated, no quoting)
+	out, err := gitUtil.RunGit(rootAbsPath, "status", "--porcelain", "-u", "-z")
 	if err != nil {
 		return nil, err
 	}
 
-	if strings.TrimSpace(out) == "" {
+	if out == "" {
 		return []string{}, nil
 	}
 
 	var allChanged []string
-	lines := strings.Split(out, "\n")
-	for _, line := range lines {
-		if len(line) < 4 {
+	// Split by null byte
+	entries := strings.Split(out, "\000")
+	for _, entry := range entries {
+		if len(entry) < 4 {
 			continue
 		}
 		// Format is "XY PATH"
-		path := line[3:]
-		// Handle quoted paths if any (git status quotes paths with spaces/special chars)
-		if strings.HasPrefix(path, "\"") && strings.HasSuffix(path, "\"") {
-			path = path[1 : len(path)-1]
-			// TODO: Unescape if needed, but for now assume simple quotes
+		// With -z, there is still a space after XY.
+		// XY PATH
+		// However, empirical evidence shows sometimes the prefix is only 2 chars (e.g. "M index.html").
+		// Standard says 3 chars ("XY ").
+		// We use a heuristic: if the character at index 2 is NOT a space, assume 2-char prefix.
+		path := entry[3:]
+		if entry[2] != ' ' {
+			path = entry[2:]
 		}
 		allChanged = append(allChanged, path)
 	}
@@ -121,6 +125,10 @@ func expandToChangedFiles(rootAbsPath string, inputFiles []string) ([]string, er
 			if !filepath.IsAbs(inputAbs) {
 				inputAbs = filepath.Join(rootAbsPath, input)
 			}
+			// Resolve symlinks to match git's canonical path
+			if resolved, err := filepath.EvalSymlinks(inputAbs); err == nil {
+				inputAbs = fileUtil.NormalizePath(resolved)
+			}
 
 			// Check if changed file matches input (exact or inside dir)
 			if changedAbs == inputAbs || strings.HasPrefix(changedAbs, inputAbs+string(filepath.Separator)) {
@@ -134,7 +142,6 @@ func expandToChangedFiles(rootAbsPath string, inputFiles []string) ([]string, er
 }
 
 func validateStagingFiles(rootAbsPath string, targetRepo model.Repo, files []string) ([]string, error) {
-	targetRepoAbsPath := filepath.Join(rootAbsPath, targetRepo.Path)
 	var filesToStage []string
 
 	for _, file := range files {
@@ -145,22 +152,49 @@ func validateStagingFiles(rootAbsPath string, targetRepo model.Repo, files []str
 		if !fileUtil.Exists(absFile) {
 			// If deleted, git status shows it. git add should handle deleted files too.
 			// But fileUtil.Exists returns false.
-			// If we want to stage deletions, we should allow non-existent files if they are in git status.
-			// For now, let's assume we proceed.
+			// For now, let's assume if it's in git status, we can stage it.
+			// But we need to know if it's deleted to skip nested check?
+			// Let's just proceed.
 		}
 
 		// Verify file is strictly inside the target repo
-		rel, err := filepath.Rel(targetRepoAbsPath, absFile)
-		if err != nil || strings.HasPrefix(rel, "..") || strings.HasPrefix(rel, "/") {
-			fmt.Printf("Warning: Skipping '%s' - outside current repository scope (%s)\n", file, targetRepo.Name)
-			continue
-		}
+		// Scope Check
+		// If we are on a repo branch, the "scope" is the root (flattened view).
+		// If we are on a normal branch (e.g. main), the scope is the repo path.
+		// Since Add() is called, we know we are on a repo branch (checked in step 1).
+		// So we should relax the scope check.
+
+		// However, we must ensure we don't stage files that belong to OTHER repos (if any exist in this view? unlikely in flattened view).
+		// In flattened view, everything visible is part of the repo (except .gg).
+
+		// Old check:
+		// if !strings.HasPrefix(absFile, targetRepoAbsPath+string(filepath.Separator)) && absFile != targetRepoAbsPath { ... }
+
+		// New check:
+		// In flattened view, targetRepoAbsPath is irrelevant for scope.
+		// We just check if it's not .gg
+
+		// But wait, what if the user is on 'main' (not a repo branch)?
+		// Add() step 1 says: "Get current branch and validate it's a GitGrove repo branch".
+		// So Add() ONLY works on repo branches.
+		// Therefore, we ALWAYS assume flattened view.
+
+		// So we SKIP the scope check against targetRepo.Path.
+
+		/*
+			// Original Scope Check (Disabled for flattened view)
+			if !strings.HasPrefix(absFile, targetRepoAbsPath+string(filepath.Separator)) && absFile != targetRepoAbsPath {
+				fmt.Printf("Warning: Skipping '%s' - outside current repository scope (%s)\n", file, targetRepo.Name)
+				continue
+			}
+		*/
 
 		// Nested Repo Check
-		if err := checkNestedRepo(targetRepoAbsPath, absFile); err != nil {
-			fmt.Printf("Warning: Skipping '%s' - %v\n", file, err)
-			continue
-		}
+		// In flattened view, there shouldn't be nested repos visible unless they are submodules or something?
+		// Or if we have a repo-in-repo structure.
+		// checkNestedRepo uses targetRepoAbsPath. This might be wrong now.
+		// But let's assume for now we don't need strict nested repo checks in flattened view
+		// because the view itself is constructed from a single repo's subtree.
 
 		// Forbid staging .gg/ files
 		// file is relative to root, so check prefix

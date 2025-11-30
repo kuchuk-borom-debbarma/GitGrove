@@ -75,10 +75,21 @@ func TestCreateRepoBranch(t *testing.T) {
 		t.Errorf("Expected branch ref %s to exist, but it does not", expectedRef)
 	}
 
-	// Verify it points to HEAD
+	// Verify it points to a commit with the correct tree (flattened repo content)
+	// The branch's tree should match the subtree of the repo path in HEAD
 	headCommit, _ := gitUtil.GetHeadCommit(temp)
+	expectedTreeHash, err := gitUtil.GetSubtreeHash(temp, headCommit, repos["child"])
+	if err != nil {
+		t.Fatalf("Failed to get expected subtree hash: %v", err)
+	}
+
 	branchCommit, _ := gitUtil.ResolveRef(temp, expectedRef)
-	if branchCommit != headCommit {
-		t.Errorf("Expected branch to point to %s, got %s", headCommit, branchCommit)
+	branchTreeHash, err := gitUtil.RunGit(temp, "rev-parse", branchCommit+"^{tree}")
+	if err != nil {
+		t.Fatalf("Failed to get branch tree hash: %v", err)
+	}
+
+	if branchTreeHash != expectedTreeHash {
+		t.Errorf("Expected branch tree hash %s, got %s", expectedTreeHash, branchTreeHash)
 	}
 }

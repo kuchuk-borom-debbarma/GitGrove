@@ -40,7 +40,7 @@ func CreateRepoBranch(rootAbsPath, repoName, branchName string) error {
 	}
 
 	// 4. Find target repo
-	_, ok := existingRepos[repoName]
+	repo, ok := existingRepos[repoName]
 	if !ok {
 		return fmt.Errorf("repo '%s' not found", repoName)
 	}
@@ -55,9 +55,26 @@ func CreateRepoBranch(rootAbsPath, repoName, branchName string) error {
 		return fmt.Errorf("failed to get project HEAD: %w", err)
 	}
 
-	// 7. Create the branch ref
-	log.Info().Msgf("Creating branch ref: %s -> %s", fullRefPath, headCommit)
-	if err := gitUtil.SetRef(rootAbsPath, fullRefPath, headCommit); err != nil {
+	// 7. Create the flattened branch commit
+	// Instead of pointing directly to HEAD, we want to create a commit that has
+	// the REPO's subtree as its root tree.
+
+	// Get the tree hash of the repo's path within the current HEAD
+	repoTreeHash, err := gitUtil.GetSubtreeHash(rootAbsPath, headCommit, repo.Path)
+	if err != nil {
+		return fmt.Errorf("failed to get subtree hash for repo %s at %s: %w", repoName, repo.Path, err)
+	}
+
+	// Create a new commit with this tree, using HEAD as parent (to keep history linkage)
+	// Note: This creates a "synthetic" commit history for the branch.
+	newCommitHash, err := gitUtil.CommitTree(rootAbsPath, repoTreeHash, fmt.Sprintf("Branch %s for repo %s", branchName, repoName), headCommit)
+	if err != nil {
+		return fmt.Errorf("failed to create commit for branch: %w", err)
+	}
+
+	// 8. Create the branch ref
+	log.Info().Msgf("Creating branch ref: %s -> %s", fullRefPath, newCommitHash)
+	if err := gitUtil.SetRef(rootAbsPath, fullRefPath, newCommitHash); err != nil {
 		return fmt.Errorf("failed to create branch ref: %w", err)
 	}
 

@@ -125,8 +125,11 @@ func StagePath(repoPath, relativePath string) error {
 }
 
 func Commit(repoPath, message string) error {
-	_, err := runGit(repoPath, "commit", "-m", message)
-	return err
+	out, err := runGit(repoPath, "commit", "-m", message)
+	if err != nil {
+		return fmt.Errorf("git commit failed: %s, %w", out, err)
+	}
+	return nil
 }
 
 func ResolveRef(repoPath, ref string) (string, error) {
@@ -291,4 +294,26 @@ func CreateBlob(repoPath, content string) (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+// GetSubtreeHash returns the tree hash of a specific subdirectory within a commit/ref.
+// It uses `git rev-parse <ref>:<path>`.
+func GetSubtreeHash(repoPath, ref, path string) (string, error) {
+	// If path is empty or ".", return the commit's tree hash
+	if path == "" || path == "." {
+		return runGit(repoPath, "rev-parse", ref+"^{tree}")
+	}
+	return runGit(repoPath, "rev-parse", ref+":"+path)
+}
+
+// GetStagedFiles returns a list of files currently staged for commit.
+func GetStagedFiles(repoPath string) ([]string, error) {
+	out, err := runGit(repoPath, "diff", "--cached", "--name-only")
+	if err != nil {
+		return nil, err
+	}
+	if out == "" {
+		return []string{}, nil
+	}
+	return strings.Split(out, "\n"), nil
 }

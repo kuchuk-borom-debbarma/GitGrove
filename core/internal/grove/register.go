@@ -90,12 +90,12 @@ func Register(rootAbsPath string, repos map[string]string) error {
 		if !gitUtil.RefExists(rootAbsPath, branchRef) {
 			log.Info().Msgf("Creating orphan branch %s", branchRef)
 
-			// Create a tree containing ONLY the marker file for this repo.
-			// This ensures that when the user switches to this branch, the directory structure
-			// and marker are preserved (if they match the current state).
+			// Create a tree containing ONLY the marker file for this repo AT THE ROOT.
+			// This ensures that when the user switches to this branch, they see the repo content at root.
 			// We use a temporary index to build this tree without affecting the user's index.
-			markerRelPath := filepath.Join(path, ".gitgroverepo")
-			treeHash, err := gitUtil.CreateTreeWithFile(rootAbsPath, markerRelPath, name) // Content is repo name
+
+			// The marker file content is the repo name
+			treeHash, err := gitUtil.CreateTreeWithFile(rootAbsPath, ".gitgroverepo", name)
 			if err != nil {
 				log.Warn().Msgf("Failed to create tree for orphan branch: %v", err)
 				continue
