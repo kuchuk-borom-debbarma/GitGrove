@@ -100,11 +100,10 @@ func (interactiveCommand) Execute(args map[string]any) error {
 		fmt.Println("3. Link Repositories")
 		fmt.Println("4. Create Branch")
 		fmt.Println("5. Checkout Branch")
-		fmt.Println("6. Switch Branch (Legacy)")
-		fmt.Println("7. Stage Files")
-		fmt.Println("8. Commit Changes")
-		fmt.Println("9. Move Repository")
-		fmt.Println("10. Exit")
+		fmt.Println("6. Stage Files")
+		fmt.Println("7. Commit Changes")
+		fmt.Println("8. Move Repository")
+		fmt.Println("9. Exit")
 		fmt.Print("Select an option: ")
 
 		input, _ := reader.ReadString('\n')
@@ -122,14 +121,12 @@ func (interactiveCommand) Execute(args map[string]any) error {
 		case "5":
 			handleCheckout(reader, absPath)
 		case "6":
-			handleSwitch(reader, absPath)
-		case "7":
 			handleStage(reader, absPath)
-		case "8":
+		case "7":
 			handleCommit(reader, absPath)
-		case "9":
+		case "8":
 			handleMove(reader, absPath)
-		case "10":
+		case "9":
 			fmt.Println("Exiting...")
 			return nil
 		default:
@@ -230,27 +227,6 @@ func handleCheckout(reader *bufio.Reader, rootPath string) {
 		fmt.Printf("Error checking out branch: %v\n", err)
 	} else {
 		fmt.Println("Checked out branch successfully.")
-	}
-}
-
-func handleSwitch(reader *bufio.Reader, rootPath string) {
-	fmt.Print("Enter Repository Name: ")
-	repoName, _ := reader.ReadString('\n')
-	repoName = strings.TrimSpace(repoName)
-
-	fmt.Print("Enter Branch Name: ")
-	branch, _ := reader.ReadString('\n')
-	branch = strings.TrimSpace(branch)
-
-	if repoName == "" || branch == "" {
-		fmt.Println("Error: Repository Name and Branch Name are required.")
-		return
-	}
-
-	if err := core.Switch(rootPath, repoName, branch); err != nil {
-		fmt.Printf("Error switching branch: %v\n", err)
-	} else {
-		fmt.Println("Switched branch successfully.")
 	}
 }
 
