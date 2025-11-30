@@ -3,7 +3,9 @@ package commands
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
+	"github.com/kuchuk-borom-debbarma/GitGrove/cli/internal/util/git"
 	"github.com/kuchuk-borom-debbarma/GitGrove/core"
 )
 
@@ -18,7 +20,7 @@ func (c *StageCommand) Command() string {
 }
 
 func (c *StageCommand) Description() string {
-	return "Stage files with GitGrove validation"
+	return "Stage files with GitGrove validation (supports . for current directory)"
 }
 
 func (c *StageCommand) ValidateArgs(args map[string]any) error {
@@ -43,7 +45,26 @@ func (c *StageCommand) Execute(args map[string]any) error {
 		return fmt.Errorf("failed to get current working directory: %w", err)
 	}
 
-	if err := core.Stage(cwd, files); err != nil {
+	root, err := git.FindRepoRoot()
+	if err != nil {
+		return err
+	}
+
+	// Resolve all files to absolute paths
+	var absFiles []string
+	for _, f := range files {
+		if f == "." {
+			absFiles = append(absFiles, cwd)
+		} else {
+			if filepath.IsAbs(f) {
+				absFiles = append(absFiles, f)
+			} else {
+				absFiles = append(absFiles, filepath.Join(cwd, f))
+			}
+		}
+	}
+
+	if err := core.Stage(root, absFiles); err != nil {
 		return fmt.Errorf("stage failed: %w", err)
 	}
 
