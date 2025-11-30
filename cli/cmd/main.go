@@ -37,3 +37,5 @@ func printUsage() {
 		fmt.Printf("  %-12s %s\n", cmdName, cmd.Description())
 	}
 }
+
+//TODO cd ~ should place you to gitgrove/system latest head and ls in this branch should show all repos with no parent i.e root repos
