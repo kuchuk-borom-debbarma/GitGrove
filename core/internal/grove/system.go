@@ -23,5 +23,14 @@ func SwitchToSystem(rootAbsPath string) error {
 	}
 
 	log.Info().Msg("Successfully switched to System Root")
+
+	// 3. Ensure clean state (User Request: ALWAYS CLEAN)
+	if err := gitUtil.ResetHard(rootAbsPath, "HEAD"); err != nil {
+		return fmt.Errorf("failed to reset hard: %w", err)
+	}
+	if err := gitUtil.CleanFD(rootAbsPath); err != nil {
+		return fmt.Errorf("failed to clean -fd: %w", err)
+	}
+
 	return nil
 }

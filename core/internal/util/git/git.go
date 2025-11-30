@@ -211,6 +211,12 @@ func ResetHard(repoPath, ref string) error {
 	return err
 }
 
+// CleanFD runs `git clean -fd` to remove untracked files and directories.
+func CleanFD(repoPath string) error {
+	_, err := runGit(repoPath, "clean", "-fd")
+	return err
+}
+
 // RefExists checks if a reference exists.
 func RefExists(repoPath, ref string) bool {
 	_, err := runGit(repoPath, "rev-parse", "--verify", "--quiet", ref)
