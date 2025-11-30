@@ -46,8 +46,8 @@ func CreateRepoBranch(rootAbsPath, repoName, branchName string) error {
 }
 
 // CheckoutRepo switches the user's working tree to a specific branch of a nested repository.
-func CheckoutRepo(rootAbsPath, repoName, branchName string, keepEmptyDirs bool) error {
-	return grove.CheckoutRepo(rootAbsPath, repoName, branchName, keepEmptyDirs)
+func CheckoutRepo(rootAbsPath, repoName, branchName string, keepEmptyDirs, flat bool) error {
+	return grove.CheckoutRepo(rootAbsPath, repoName, branchName, keepEmptyDirs, flat)
 }
 
 // Add adds file contents to the staging area with GitGrove-specific validations.

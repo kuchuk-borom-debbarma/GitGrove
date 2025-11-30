@@ -40,7 +40,7 @@ func Down(rootAbsPath, childName string) error {
 
 	// 3. Switch to child
 	branchName := "main"
-	if err := CheckoutRepo(rootAbsPath, childName, branchName, false); err != nil {
+	if err := CheckoutRepo(rootAbsPath, childName, branchName, false, false); err != nil {
 		return err
 	}
 	return nil
