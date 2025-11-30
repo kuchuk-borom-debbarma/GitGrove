@@ -14,7 +14,14 @@ func (branchCommand) Command() string {
 }
 
 func (branchCommand) Description() string {
-	return "Create a new branch for a nested repository"
+	return `Create a new branch for a repository
+
+Usage:
+  gitgrove branch <repo> <branch-name>
+
+Examples:
+  gitgrove branch auth feature-oauth
+  gitgrove branch payments refactor-api`
 }
 
 func (branchCommand) ValidateArgs(args map[string]any) error {

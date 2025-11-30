@@ -10,14 +10,15 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: gitgrove <command> [args]")
+		printUsage()
 		return
 	}
 
 	commandName := os.Args[1]
 	command, ok := commands.GetCommand(commandName)
 	if !ok {
-		fmt.Println("Unknown command:", commandName)
+		fmt.Printf("Unknown command: %s\n\n", commandName)
+		printUsage()
 		return
 	}
 
@@ -25,5 +26,14 @@ func main() {
 	runner := commands.CommandRunner{}
 	if err := runner.Run(command, args); err != nil {
 		os.Exit(1)
+	}
+}
+
+func printUsage() {
+	fmt.Println("Usage: gitgrove <command> [args]")
+	fmt.Println("\nAvailable commands:")
+	for _, cmdName := range commands.ListCommands() {
+		cmd, _ := commands.GetCommand(cmdName)
+		fmt.Printf("  %-12s %s\n", cmdName, cmd.Description())
 	}
 }

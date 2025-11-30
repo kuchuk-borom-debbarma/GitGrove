@@ -71,14 +71,8 @@ func TestSwitch(t *testing.T) {
 		t.Fatalf("Register failed: %v", err)
 	}
 
-	// Register creates .gitgroverepo files which are untracked.
-	// We need to commit them to have a clean state for Link.
-	if err := gitUtil.StagePath(tmpDir, "."); err != nil {
-		t.Fatalf("failed to stage .gitgroverepo files: %v", err)
-	}
-	if err := gitUtil.Commit(tmpDir, "Add .gitgroverepo markers"); err != nil {
-		t.Fatalf("failed to commit markers: %v", err)
-	}
+	// Register now automatically commits .gitgroverepo markers when on system branch.
+	// So we don't need to manually commit them.
 
 	// Link repos
 	relationships := map[string]string{
@@ -105,7 +99,7 @@ func TestSwitch(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to get current branch: %v", err)
 		}
-		expected := "gitgroove/repos/root/children/backend/branches/main"
+		expected := "gitgroove/repos/backend/branches/main"
 		if head != expected {
 			t.Errorf("expected HEAD to be %s, got %s", expected, head)
 		}
@@ -123,7 +117,7 @@ func TestSwitch(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to get current branch: %v", err)
 		}
-		expected := "gitgroove/repos/root/children/frontend/branches/main"
+		expected := "gitgroove/repos/frontend/branches/main"
 		if head != expected {
 			t.Errorf("expected HEAD to be %s, got %s", expected, head)
 		}

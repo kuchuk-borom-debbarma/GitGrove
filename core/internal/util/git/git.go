@@ -3,8 +3,13 @@ package git
 import (
 	"bytes"
 	"errors"
+	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
+
+	fileUtil "github.com/kuchuk-borom-debbarma/GitGrove/core/internal/util/file"
 )
 
 // Internal helper to run git
@@ -120,8 +125,11 @@ func StagePath(repoPath, relativePath string) error {
 }
 
 func Commit(repoPath, message string) error {
-	_, err := runGit(repoPath, "commit", "-m", message)
-	return err
+	out, err := runGit(repoPath, "commit", "-m", message)
+	if err != nil {
+		return fmt.Errorf("git commit failed: %s, %w", out, err)
+	}
+	return nil
 }
 
 func ResolveRef(repoPath, ref string) (string, error) {
@@ -224,4 +232,156 @@ func CreateBranch(repoPath, branch, startPoint string) error {
 // RunGit runs an arbitrary git command.
 func RunGit(repoPath string, args ...string) (string, error) {
 	return runGit(repoPath, args...)
+}
+
+// CommitTree creates a commit from a tree object.
+func CommitTree(repoPath, treeHash, message string, parents ...string) (string, error) {
+	args := []string{"commit-tree", treeHash, "-m", message}
+	for _, p := range parents {
+		args = append(args, "-p", p)
+	}
+	return runGit(repoPath, args...)
+}
+
+// GetEmptyTreeHash returns the hash of an empty tree.
+func GetEmptyTreeHash(repoPath string) (string, error) {
+	// The empty tree hash is a constant in git: 4b825dc642cb6eb9a060e54bf8d69288fbee4904
+	return "4b825dc642cb6eb9a060e54bf8d69288fbee4904", nil
+}
+
+// CreateTreeWithFile creates a git tree object containing a single file with the given content.
+// It uses a temporary index file to avoid disturbing the user's index.
+func CreateTreeWithFile(repoPath, relPath, content string) (string, error) {
+	// 1. Create blob
+	blobHash, err := CreateBlob(repoPath, content)
+	if err != nil {
+		return "", fmt.Errorf("failed to create blob: %w", err)
+	}
+
+	// 2. Add to temp index
+	// We use a unique temp file for the index
+	tempIndex := filepath.Join(repoPath, ".git", "index.temp."+fileUtil.RandomString(8))
+	defer os.Remove(tempIndex)
+
+	// git update-index --add --cacheinfo 100644 <blob> <path>
+	// We must set GIT_INDEX_FILE environment variable
+	cmd := exec.Command("git", "update-index", "--add", "--cacheinfo", "100644", blobHash, relPath)
+	cmd.Dir = repoPath
+	cmd.Env = append(os.Environ(), "GIT_INDEX_FILE="+tempIndex)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("failed to update temp index: %v, output: %s", err, out)
+	}
+
+	// 3. Write tree
+	cmd = exec.Command("git", "write-tree")
+	cmd.Dir = repoPath
+	cmd.Env = append(os.Environ(), "GIT_INDEX_FILE="+tempIndex)
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to write tree: %v", err)
+	}
+
+	return strings.TrimSpace(string(out)), nil
+}
+
+// GetSubtreeHash returns the tree hash of a specific subdirectory within a commit/ref.
+// It uses `git rev-parse <ref>:<path>`.
+func GetSubtreeHash(repoPath, ref, path string) (string, error) {
+	// If path is empty or ".", return the commit's tree hash
+	if path == "" || path == "." {
+		return runGit(repoPath, "rev-parse", ref+"^{tree}")
+	}
+	return runGit(repoPath, "rev-parse", ref+":"+path)
+}
+
+// GetStagedFiles returns a list of files currently staged for commit.
+func GetStagedFiles(repoPath string) ([]string, error) {
+	out, err := runGit(repoPath, "diff", "--cached", "--name-only")
+	if err != nil {
+		return nil, err
+	}
+	if out == "" {
+		return []string{}, nil
+	}
+	return strings.Split(out, "\n"), nil
+}
+
+// AddFileToTree adds a file to an existing tree (or creates a new one if baseTreeHash is empty).
+// It returns the new tree hash.
+func AddFileToTree(repoPath, baseTreeHash, filename, content string) (string, error) {
+	// 1. Create blob for the file content
+	blobHash, err := CreateBlob(repoPath, content)
+	if err != nil {
+		return "", fmt.Errorf("failed to create blob: %w", err)
+	}
+
+	// 2. If baseTreeHash is provided, read its entries
+	// We use read-tree instead of parsing ls-tree output manually
+	// so we don't need 'entries' variable.
+
+	// 3. Construct input for mktree
+	// mktree expects: <mode> SP <type> SP <object> TAB <file>
+	// ls-tree output (with -z): <mode> SP <type> SP <object> TAB <file> NUL
+	// We need to parse ls-tree output and append our new entry.
+
+	// Actually, git update-index is easier if we have a temporary index.
+	// But we want to avoid touching the index if possible to be pure plumbing.
+	// However, mktree requires sorting.
+
+	// Let's use a temporary index approach as it handles sorting and merging correctly.
+	// git read-tree <baseTreeHash>
+	// git update-index --add --cacheinfo 100644 <blobHash> <filename>
+	// git write-tree
+
+	// But this modifies the index! We must use a temporary index file.
+
+	env := os.Environ()
+	tempIndex := filepath.Join(repoPath, ".git", "index.temp."+fileUtil.RandomString(8))
+	env = append(env, "GIT_INDEX_FILE="+tempIndex)
+
+	// Helper to run git with custom env
+	runGitEnv := func(args ...string) (string, error) {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = repoPath
+		cmd.Env = env
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return string(out), err
+		}
+		return strings.TrimSpace(string(out)), nil
+	}
+
+	defer os.Remove(tempIndex)
+
+	// 1. Read base tree into temp index
+	if baseTreeHash != "" {
+		if _, err := runGitEnv("read-tree", baseTreeHash); err != nil {
+			return "", fmt.Errorf("failed to read tree: %w", err)
+		}
+	}
+
+	// 2. Add new file
+	if _, err := runGitEnv("update-index", "--add", "--cacheinfo", "100644", blobHash, filename); err != nil {
+		return "", fmt.Errorf("failed to update index: %w", err)
+	}
+
+	// 3. Write tree
+	newTreeHash, err := runGitEnv("write-tree")
+	if err != nil {
+		return "", fmt.Errorf("failed to write tree: %w", err)
+	}
+
+	return newTreeHash, nil
+}
+
+// CreateBlob creates a git blob object and returns its hash.
+func CreateBlob(repoPath, content string) (string, error) {
+	cmd := exec.Command("git", "hash-object", "-w", "--stdin")
+	cmd.Dir = repoPath
+	cmd.Stdin = strings.NewReader(content)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to create blob: %s, %w", out, err)
+	}
+	return strings.TrimSpace(string(out)), nil
 }

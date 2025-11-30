@@ -2,8 +2,9 @@ package commands
 
 import (
 	"fmt"
-	"os"
+	"strings"
 
+	"github.com/kuchuk-borom-debbarma/GitGrove/cli/internal/util/git"
 	"github.com/kuchuk-borom-debbarma/GitGrove/core"
 )
 
@@ -14,40 +15,86 @@ func (linkCmd) Command() string {
 }
 
 func (linkCmd) Description() string {
-	return "Link a child repository to a parent repository using --child and --parent"
+	return `Define parent-child relationships between repositories
+
+Usage:
+  gitgrove link --child auth --parent services
+  gitgrove link auth;services payments;services
+
+Examples:
+  # Link auth service to services parent
+  gitgrove link --child auth --parent services
+
+  # Link multiple services at once
+  gitgrove link auth;services payments;services inventory;services`
 }
 
 func (linkCmd) ValidateArgs(args map[string]any) error {
-	if _, ok := args["child"]; !ok {
-		return fmt.Errorf("missing required flag: --child")
+	hasChild := false
+	if _, ok := args["child"]; ok {
+		hasChild = true
 	}
-	if _, ok := args["parent"]; !ok {
-		return fmt.Errorf("missing required flag: --parent")
+	hasParent := false
+	if _, ok := args["parent"]; ok {
+		hasParent = true
 	}
+
+	hasPositional := false
+	if val, ok := args["args"]; ok {
+		if list, ok := val.([]string); ok && len(list) > 0 {
+			hasPositional = true
+		}
+	}
+
+	if !hasChild && !hasParent && !hasPositional {
+		return fmt.Errorf("missing required arguments: provide either --child and --parent flags, or child;parent positional arguments")
+	}
+
+	if (hasChild && !hasParent) || (!hasChild && hasParent) {
+		return fmt.Errorf("both --child and --parent must be provided together")
+	}
+
 	return nil
 }
 
 func (linkCmd) Execute(args map[string]any) error {
-	cwd, err := os.Getwd()
+	root, err := git.FindRepoRoot()
 	if err != nil {
 		return err
 	}
 
-	child, ok := args["child"].(string)
-	if !ok {
-		return fmt.Errorf("--child must be a string")
+	relationships := make(map[string]string)
+
+	// Handle flags
+	if child, ok := args["child"].(string); ok {
+		if parent, ok := args["parent"].(string); ok {
+			relationships[child] = parent
+		}
 	}
 
-	parent, ok := args["parent"].(string)
-	if !ok {
-		return fmt.Errorf("--parent must be a string")
+	// Handle positional args
+	if val, ok := args["args"]; ok {
+		if list, ok := val.([]string); ok {
+			for _, arg := range list {
+				parts := strings.SplitN(arg, ";", 2)
+				if len(parts) != 2 {
+					return fmt.Errorf("invalid argument format '%s': expected child;parent", arg)
+				}
+				child := strings.TrimSpace(parts[0])
+				parent := strings.TrimSpace(parts[1])
+				if child == "" || parent == "" {
+					return fmt.Errorf("invalid argument '%s': child and parent cannot be empty", arg)
+				}
+				relationships[child] = parent
+			}
+		}
 	}
 
-	relationships := map[string]string{
-		child: parent,
+	if len(relationships) == 0 {
+		return fmt.Errorf("no relationships specified")
 	}
 
-	return core.Link(cwd, relationships)
+	return core.Link(root, relationships)
 }
 
 func init() {

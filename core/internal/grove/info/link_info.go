@@ -1,4 +1,4 @@
-package doctor
+package info
 
 import (
 	"fmt"
@@ -6,8 +6,8 @@ import (
 	"strings"
 )
 
-// LinkDoctor represents the hierarchical structure of repositories.
-type LinkDoctor struct {
+// LinkInfo represents the hierarchical structure of repositories.
+type LinkInfo struct {
 	Roots []*TreeNode
 }
 
@@ -17,11 +17,11 @@ type TreeNode struct {
 	Children []*TreeNode
 }
 
-// GetLinkDoctor builds the hierarchical structure of repositories from a RepoDoctor.
-func GetLinkDoctor(repoDoctor *RepoDoctor) *LinkDoctor {
+// GetLinkInfo builds the hierarchical structure of repositories from a RepoInfo.
+func GetLinkInfo(repoInfo *RepoInfo) *LinkInfo {
 	// Build map of name -> node
 	nodes := make(map[string]*TreeNode)
-	for name, state := range repoDoctor.Repos {
+	for name, state := range repoInfo.Repos {
 		nodes[name] = &TreeNode{
 			State:    state,
 			Children: []*TreeNode{},
@@ -51,7 +51,7 @@ func GetLinkDoctor(repoDoctor *RepoDoctor) *LinkDoctor {
 		sortNodes(node.Children)
 	}
 
-	return &LinkDoctor{Roots: roots}
+	return &LinkInfo{Roots: roots}
 }
 
 func sortNodes(nodes []*TreeNode) {
@@ -61,15 +61,15 @@ func sortNodes(nodes []*TreeNode) {
 }
 
 // String returns a beautiful tree representation of the hierarchy
-func (ld *LinkDoctor) String() string {
+func (ld *LinkInfo) String(currentRepo string) string {
 	var sb strings.Builder
 	for _, root := range ld.Roots {
-		ld.printNode(&sb, root, "", true)
+		ld.printNode(&sb, root, "", true, currentRepo)
 	}
 	return sb.String()
 }
 
-func (ld *LinkDoctor) printNode(sb *strings.Builder, node *TreeNode, prefix string, isLast bool) {
+func (ld *LinkInfo) printNode(sb *strings.Builder, node *TreeNode, prefix string, isLast bool, currentRepo string) {
 	sb.WriteString(prefix)
 	if isLast {
 		sb.WriteString("└── ")
@@ -79,25 +79,23 @@ func (ld *LinkDoctor) printNode(sb *strings.Builder, node *TreeNode, prefix stri
 		prefix += "│   "
 	}
 
-	sb.WriteString(fmt.Sprintf("%s (%s)", node.State.Repo.Name, node.State.Repo.Path))
-
-	if !node.State.PathExists {
-		sb.WriteString(" [MISSING]")
+	name := node.State.Repo.Name
+	if name == currentRepo {
+		sb.WriteString(fmt.Sprintf("* %s (%s) [CURRENT]", name, node.State.Repo.Path))
+	} else {
+		sb.WriteString(fmt.Sprintf("%s (%s)", name, node.State.Repo.Path))
 	}
 
-	// Check for broken parent link (if parent is set but not found in tree logic)
-	// The tree construction logic puts orphans in roots.
-	// We can check if it has a parent defined but is at root level (and not empty parent)
-	// However, the recursion doesn't know if it's a root because of logic or definition.
-	// A simpler check: if we are printing a node, we can check its parent field.
-	// But we don't have easy access to the parent node here to check if it exists.
-	// The GetLinkStatus logic handles the structure.
-	// If a node claims a parent "foo" but "foo" doesn't exist, it ends up as a root.
-	// We can detect that case if we want, but "MISSING" path is the main request.
+	if !node.State.PathExists && name != currentRepo {
+		// Only show MISSING if it's not the current repo (which by definition exists here)
+		// Actually, if we are in a flattened view, other repos ARE missing.
+		// But we want to show the hierarchy regardless.
+		sb.WriteString(" [MISSING]")
+	}
 
 	sb.WriteString("\n")
 
 	for i, child := range node.Children {
-		ld.printNode(sb, child, prefix, i == len(node.Children)-1)
+		ld.printNode(sb, child, prefix, i == len(node.Children)-1, currentRepo)
 	}
 }

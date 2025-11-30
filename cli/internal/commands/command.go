@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"sort"
 )
 
 type Command interface {
@@ -24,6 +25,15 @@ func registerCommand(command Command) {
 func GetCommand(name string) (Command, bool) {
 	cmd, ok := commandRegistry[name]
 	return cmd, ok
+}
+
+func ListCommands() []string {
+	keys := make([]string, 0, len(commandRegistry))
+	for k := range commandRegistry {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 type CommandRunner struct{}

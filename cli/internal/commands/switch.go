@@ -18,7 +18,15 @@ func (c *SwitchCommand) Command() string {
 }
 
 func (c *SwitchCommand) Description() string {
-	return "Switch to a specific repo branch"
+	return `Switch to a repository branch (flattened view)
+
+Usage:
+  gitgrove switch <repo> [branch]
+
+Examples:
+  gitgrove switch auth main             # Switch to auth's main branch
+  gitgrove switch auth                  # Switch to auth (default branch)
+  gitgrove switch payments feature-x    # Switch to specific branch`
 }
 
 func (c *SwitchCommand) ValidateArgs(args map[string]any) error {

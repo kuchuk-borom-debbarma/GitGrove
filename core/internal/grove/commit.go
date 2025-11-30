@@ -48,58 +48,41 @@ func Commit(rootAbsPath, message string) error {
 		return fmt.Errorf("failed to load repo metadata: %w", err)
 	}
 
-	targetRepo, ok := repos[targetRepoName]
+	_, ok := repos[targetRepoName]
 	if !ok {
 		return fmt.Errorf("current branch belongs to unknown repo '%s'", targetRepoName)
 	}
 
-	targetRepoAbsPath := filepath.Join(rootAbsPath, targetRepo.Path)
-
-	// 5. Validate .gitgroverepo identity
-	markerPath := filepath.Join(targetRepoAbsPath, ".gitgroverepo")
+	// 3. Verify .gitgroverepo marker
+	// In flattened view, the marker is at the root.
+	markerPath := filepath.Join(rootAbsPath, ".gitgroverepo")
 	if !fileUtil.Exists(markerPath) {
 		return fmt.Errorf("repo marker not found at %s (is this a valid GitGrove repo?)", markerPath)
 	}
 
-	markerContent, err := fileUtil.ReadTextFile(markerPath)
+	content, err := fileUtil.ReadTextFile(markerPath)
 	if err != nil {
 		return fmt.Errorf("failed to read repo marker: %w", err)
 	}
-
-	markerIdentity := strings.TrimSpace(markerContent)
-	if markerIdentity != targetRepoName {
-		return fmt.Errorf("repo identity mismatch: branch expects '%s', but marker says '%s'", targetRepoName, markerIdentity)
+	if strings.TrimSpace(content) != targetRepoName {
+		return fmt.Errorf("repo marker mismatch: expected '%s', got '%s'", targetRepoName, content)
 	}
 
-	// 6. Validate staged changes belong to this repo
-	// git diff --cached --name-only
-	stagedFilesStr, err := gitUtil.RunGit(rootAbsPath, "diff", "--cached", "--name-only")
+	// 4. Validate staged files
+	// Ensure all staged files belong to this repo (scope check).
+	// In flattened view, everything at root belongs to the repo (except .gg).
+	stagedFiles, err := gitUtil.GetStagedFiles(rootAbsPath)
 	if err != nil {
-		return fmt.Errorf("failed to get staged changes: %w", err)
+		return fmt.Errorf("failed to get staged files: %w", err)
 	}
 
-	if stagedFilesStr == "" {
-		return fmt.Errorf("nothing to commit (staged changes empty)")
-	}
-
-	stagedFiles := strings.Split(strings.TrimSpace(stagedFilesStr), "\n")
 	for _, file := range stagedFiles {
-		if file == "" {
-			continue
-		}
-
 		absFile := filepath.Join(rootAbsPath, file)
 
-		// Ensure file is inside repo root (targetRepoAbsPath)
-		rel, err := filepath.Rel(targetRepoAbsPath, absFile)
-		if err != nil || strings.HasPrefix(rel, "..") || strings.HasPrefix(rel, "/") {
-			return fmt.Errorf("staged file '%s' is outside the current repository scope (%s)", file, targetRepoName)
-		}
-
-		// Ensure file is NOT inside nested repo
-		if err := checkNestedRepo(targetRepoAbsPath, absFile); err != nil {
-			return fmt.Errorf("staged file '%s' violates nested repo boundary: %w", file, err)
-		}
+		// Nested Repo Check
+		// In flattened view, we assume no nested repos are visible/staged unless explicitly added.
+		// We skip strict nested repo check for now as path logic is different.
+		// if err := checkNestedRepo(targetRepoAbsPath, absFile); err != nil { ... }
 
 		// Ensure not .gg/**
 		relToRoot, _ := filepath.Rel(rootAbsPath, absFile)

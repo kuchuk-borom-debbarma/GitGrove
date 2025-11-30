@@ -83,9 +83,51 @@ func Register(rootAbsPath string, repos map[string]string) error {
 			log.Warn().Msgf("Failed to write marker file at %s: %v", markerPath, err)
 			// We don't fail the registration because the metadata is already committed.
 		}
+
+		// 9. Create orphan branch for the repo if it doesn't exist
+		// Branch: refs/heads/gitgroove/repos/<name>/branches/main
+		branchRef := RepoBranchRef(name, model.DefaultRepoBranch)
+		if !gitUtil.RefExists(rootAbsPath, branchRef) {
+			log.Info().Msgf("Creating orphan branch %s", branchRef)
+
+			// Create a tree containing the existing content of the repo folder (flattened)
+			// PLUS the marker file.
+
+			// 1. Get HEAD commit to find existing content
+			headCommit, err := gitUtil.GetHeadCommit(rootAbsPath)
+			var baseTreeHash string
+			if err == nil {
+				// 2. Get subtree hash for the repo path
+				// If path is not in HEAD (e.g. new untracked folder), this might fail or return error.
+				// We treat error as "empty tree".
+				subtree, err := gitUtil.GetSubtreeHash(rootAbsPath, headCommit, path)
+				if err == nil {
+					baseTreeHash = subtree
+				} else {
+					log.Debug().Msgf("Subtree for %s not found in HEAD (new repo?): %v", path, err)
+				}
+			}
+
+			// 3. Add .gitgroverepo marker to this tree
+			treeHash, err := gitUtil.AddFileToTree(rootAbsPath, baseTreeHash, ".gitgroverepo", name)
+			if err != nil {
+				log.Warn().Msgf("Failed to create tree for orphan branch: %v", err)
+				continue
+			}
+
+			commitHash, err := gitUtil.CommitTree(rootAbsPath, treeHash, "Initial repo structure")
+			if err != nil {
+				log.Warn().Msgf("Failed to create orphan branch %s: %v", branchRef, err)
+			} else {
+				if err := gitUtil.SetRef(rootAbsPath, branchRef, commitHash); err != nil {
+					log.Warn().Msgf("Failed to set ref %s: %v", branchRef, err)
+				}
+			}
+		}
 	}
 
 	log.Info().Msg("Successfully registered repositories")
+	log.Info().Msg("Wrote repo marker files; please commit them if you need them visible on your working branches")
 	return nil
 }
 
@@ -113,7 +155,7 @@ func createRegisterCommit(rootAbsPath, oldTip string, repos map[string]string) (
 	}
 	defer gitUtil.WorktreeRemove(rootAbsPath, tempDir) // cleanup worktree
 
-	// Write new repos to .gg/repos/<name>/path
+	// Write new repos to .gg/repos/<name>/path AND write marker files
 	for name, path := range repos {
 		repoDir := filepath.Join(tempDir, ".gg", "repos", name)
 		if err := os.MkdirAll(repoDir, 0755); err != nil {
@@ -132,6 +174,41 @@ func createRegisterCommit(rootAbsPath, oldTip string, repos map[string]string) (
 		if err := os.WriteFile(pathFile, []byte(cleanPath), 0644); err != nil {
 			return "", fmt.Errorf("failed to write path for repo %s: %w", name, err)
 		}
+
+		// Write marker file in the temp worktree so it gets committed
+		// This ensures that when we are on gitgroove/system, the marker is tracked.
+		// Note: repoDir is .gg/repos/<name>, but the marker should be in the actual repo path?
+		// WAIT. The marker file goes into the ACTUAL repo path, not .gg/repos.
+		// The `createRegisterCommit` function is working in a temp worktree of the ROOT repo.
+		// The `repos` map contains paths relative to root.
+		// So we need to write to `tempDir/<path>/.gitgroverepo`.
+
+		// Let's re-read the plan and the code.
+		// The code currently stages ".gg/repos".
+		// I need to write the marker to `tempDir/<path>/.gitgroverepo` and ALSO stage it.
+	}
+
+	// Write marker files to the actual repo locations in the temp worktree
+	for name, path := range repos {
+		// path is relative to root
+		// We need to write to tempDir/path/.gitgroverepo
+
+		// Canonicalize path again (or reuse cleanPath if I refactor, but let's just re-clean for safety)
+		cleanPath := fileUtil.NormalizePath(path)
+		if filepath.IsAbs(cleanPath) {
+			rel, _ := filepath.Rel(rootAbsPath, cleanPath)
+			cleanPath = fileUtil.NormalizePath(rel)
+		}
+
+		fullPath := filepath.Join(tempDir, cleanPath)
+		if err := os.MkdirAll(fullPath, 0755); err != nil {
+			return "", fmt.Errorf("failed to create repo dir in temp worktree %s: %w", fullPath, err)
+		}
+
+		markerPath := filepath.Join(fullPath, ".gitgroverepo")
+		if err := os.WriteFile(markerPath, []byte(name), 0644); err != nil {
+			return "", fmt.Errorf("failed to write marker in temp worktree %s: %w", markerPath, err)
+		}
 	}
 
 	// 6. Create new commit
@@ -139,6 +216,22 @@ func createRegisterCommit(rootAbsPath, oldTip string, repos map[string]string) (
 	if err := gitUtil.StagePath(tempDir, ".gg/repos"); err != nil {
 		return "", fmt.Errorf("failed to stage .gg/repos: %w", err)
 	}
+
+	// Stage marker files
+	for _, path := range repos {
+		// Canonicalize path again
+		cleanPath := fileUtil.NormalizePath(path)
+		if filepath.IsAbs(cleanPath) {
+			rel, _ := filepath.Rel(rootAbsPath, cleanPath)
+			cleanPath = fileUtil.NormalizePath(rel)
+		}
+
+		markerRelPath := filepath.Join(cleanPath, ".gitgroverepo")
+		if err := gitUtil.StagePath(tempDir, markerRelPath); err != nil {
+			return "", fmt.Errorf("failed to stage marker file %s: %w", markerRelPath, err)
+		}
+	}
+
 	if err := gitUtil.Commit(tempDir, fmt.Sprintf("Register %d new repositories", len(repos))); err != nil {
 		return "", fmt.Errorf("failed to commit metadata changes: %w", err)
 	}

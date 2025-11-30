@@ -71,8 +71,8 @@ func TestCheckoutRepo(t *testing.T) {
 	}
 
 	// Verify we switched to the correct branch
-	// Expected branch name: gitgroove/repos/parent/children/child/branches/feature/checkout-test
-	expectedBranch := "gitgroove/repos/parent/children/child/branches/feature/checkout-test"
+	// Expected branch name: gitgroove/repos/child/branches/feature/checkout-test
+	expectedBranch := "gitgroove/repos/child/branches/feature/checkout-test"
 
 	newBranch := strings.TrimSpace(execGit(t, temp, "branch", "--show-current"))
 	if newBranch != expectedBranch {
