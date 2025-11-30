@@ -64,3 +64,28 @@ func Commit(rootAbsPath, message string) error {
 func Move(rootAbsPath, repoName, newRelPath string) error {
 	return grove.Move(rootAbsPath, repoName, newRelPath)
 }
+
+// Repo represents a registered repository in the public API.
+type Repo struct {
+	Name   string
+	Path   string
+	Parent string
+}
+
+// GetRepositories returns a list of all registered repositories.
+func GetRepositories(rootAbsPath string) ([]Repo, error) {
+	repoInfo, err := info.GetRepoInfo(rootAbsPath)
+	if err != nil {
+		return nil, err
+	}
+
+	var repos []Repo
+	for _, state := range repoInfo.Repos {
+		repos = append(repos, Repo{
+			Name:   state.Repo.Name,
+			Path:   state.Repo.Path,
+			Parent: state.Repo.Parent,
+		})
+	}
+	return repos, nil
+}

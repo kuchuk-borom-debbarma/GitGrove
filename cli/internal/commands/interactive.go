@@ -167,16 +167,28 @@ func handleRegister(reader *bufio.Reader, rootPath string) {
 }
 
 func handleLink(reader *bufio.Reader, rootPath string) {
-	fmt.Print("Enter Child Repository Name: ")
-	child, _ := reader.ReadString('\n')
-	child = strings.TrimSpace(child)
+	fmt.Println("Select Child Repository:")
+	child, err := selectRepo(reader, rootPath, "Select child")
+	if err != nil {
+		fmt.Printf("Error selecting child repo: %v\n", err)
+		return
+	}
+	if child == "" {
+		return // Cancelled
+	}
 
-	fmt.Print("Enter Parent Repository Name: ")
-	parent, _ := reader.ReadString('\n')
-	parent = strings.TrimSpace(parent)
+	fmt.Println("Select Parent Repository:")
+	parent, err := selectRepo(reader, rootPath, "Select parent")
+	if err != nil {
+		fmt.Printf("Error selecting parent repo: %v\n", err)
+		return
+	}
+	if parent == "" {
+		return // Cancelled
+	}
 
-	if child == "" || parent == "" {
-		fmt.Println("Error: Child and Parent names are required.")
+	if child == parent {
+		fmt.Println("Error: Child and Parent cannot be the same.")
 		return
 	}
 
@@ -189,16 +201,21 @@ func handleLink(reader *bufio.Reader, rootPath string) {
 }
 
 func handleBranch(reader *bufio.Reader, rootPath string) {
-	fmt.Print("Enter Repository Name: ")
-	repoName, _ := reader.ReadString('\n')
-	repoName = strings.TrimSpace(repoName)
+	repoName, err := selectRepo(reader, rootPath, "Select repository to branch")
+	if err != nil {
+		fmt.Printf("Error selecting repo: %v\n", err)
+		return
+	}
+	if repoName == "" {
+		return
+	}
 
 	fmt.Print("Enter New Branch Name: ")
 	branch, _ := reader.ReadString('\n')
 	branch = strings.TrimSpace(branch)
 
-	if repoName == "" || branch == "" {
-		fmt.Println("Error: Repository Name and Branch Name are required.")
+	if branch == "" {
+		fmt.Println("Error: Branch Name is required.")
 		return
 	}
 
@@ -210,16 +227,21 @@ func handleBranch(reader *bufio.Reader, rootPath string) {
 }
 
 func handleCheckout(reader *bufio.Reader, rootPath string) {
-	fmt.Print("Enter Repository Name: ")
-	repoName, _ := reader.ReadString('\n')
-	repoName = strings.TrimSpace(repoName)
+	repoName, err := selectRepo(reader, rootPath, "Select repository to checkout")
+	if err != nil {
+		fmt.Printf("Error selecting repo: %v\n", err)
+		return
+	}
+	if repoName == "" {
+		return
+	}
 
 	fmt.Print("Enter Branch Name: ")
 	branch, _ := reader.ReadString('\n')
 	branch = strings.TrimSpace(branch)
 
-	if repoName == "" || branch == "" {
-		fmt.Println("Error: Repository Name and Branch Name are required.")
+	if branch == "" {
+		fmt.Println("Error: Branch Name is required.")
 		return
 	}
 
@@ -275,16 +297,21 @@ func handleCommit(reader *bufio.Reader, rootPath string) {
 }
 
 func handleMove(reader *bufio.Reader, rootPath string) {
-	fmt.Print("Enter Repository Name: ")
-	repoName, _ := reader.ReadString('\n')
-	repoName = strings.TrimSpace(repoName)
+	repoName, err := selectRepo(reader, rootPath, "Select repository to move")
+	if err != nil {
+		fmt.Printf("Error selecting repo: %v\n", err)
+		return
+	}
+	if repoName == "" {
+		return
+	}
 
 	fmt.Print("Enter New Relative Path: ")
 	newPath, _ := reader.ReadString('\n')
 	newPath = strings.TrimSpace(newPath)
 
-	if repoName == "" || newPath == "" {
-		fmt.Println("Error: Repository Name and New Path are required.")
+	if newPath == "" {
+		fmt.Println("Error: New Path is required.")
 		return
 	}
 
@@ -301,6 +328,124 @@ func runGitInit(path string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
+}
+
+// selectRepo presents a hierarchical menu to select a repository.
+// It returns the selected repo name, or empty string if cancelled.
+func selectRepo(reader *bufio.Reader, rootPath, prompt string) (string, error) {
+	repos, err := core.GetRepositories(rootPath)
+	if err != nil {
+		return "", err
+	}
+
+	if len(repos) == 0 {
+		fmt.Println("No repositories registered.")
+		return "", nil
+	}
+
+	// Build tree
+	// parent -> []children
+	tree := make(map[string][]string)
+	// roots are repos with empty parent
+	var roots []string
+	repoMap := make(map[string]core.Repo)
+
+	for _, r := range repos {
+		repoMap[r.Name] = r
+		if r.Parent == "" {
+			roots = append(roots, r.Name)
+		} else {
+			tree[r.Parent] = append(tree[r.Parent], r.Name)
+		}
+	}
+
+	// Navigation loop
+	currentLevel := roots
+	pathStack := []string{} // Stack of parent names
+
+	for {
+		fmt.Printf("\n--- %s ---\n", prompt)
+		if len(pathStack) > 0 {
+			fmt.Printf("Path: %s\n", strings.Join(pathStack, " > "))
+		} else {
+			fmt.Println("Path: (root)")
+		}
+
+		// List options
+		for i, name := range currentLevel {
+			hasChildren := len(tree[name]) > 0
+			suffix := ""
+			if hasChildren {
+				suffix = " >"
+			}
+			fmt.Printf("%d. %s%s (%s)\n", i+1, name, suffix, repoMap[name].Path)
+		}
+
+		fmt.Println("b. Back / Cancel")
+		fmt.Print("Select option: ")
+
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+
+		if input == "b" {
+			if len(pathStack) > 0 {
+				// Go up one level
+				pathStack = pathStack[:len(pathStack)-1]
+
+				// Re-calculate current level based on new parent
+				if len(pathStack) == 0 {
+					currentLevel = roots
+				} else {
+					// Wait, we need to find siblings of 'parent'
+					// Actually, simpler: just re-traverse or store levels in stack?
+					// Storing levels is easier but consumes memory.
+					// Re-traversing:
+					if len(pathStack) == 0 {
+						currentLevel = roots
+					} else {
+						p := pathStack[len(pathStack)-1]
+						currentLevel = tree[p]
+					}
+				}
+				continue
+			} else {
+				return "", nil // Cancel
+			}
+		}
+
+		var index int
+		_, err := fmt.Sscanf(input, "%d", &index)
+		if err != nil || index < 1 || index > len(currentLevel) {
+			fmt.Println("Invalid selection.")
+			continue
+		}
+
+		selectedName := currentLevel[index-1]
+
+		// If it has children, ask if user wants to select THIS repo or dive deeper
+		if len(tree[selectedName]) > 0 {
+			fmt.Printf("Selected '%s'.\n", selectedName)
+			fmt.Println("1. Select this repository")
+			fmt.Println("2. Navigate into children")
+			fmt.Print("Choice: ")
+			choice, _ := reader.ReadString('\n')
+			choice = strings.TrimSpace(choice)
+
+			if choice == "1" {
+				return selectedName, nil
+			} else if choice == "2" {
+				pathStack = append(pathStack, selectedName)
+				currentLevel = tree[selectedName]
+				continue
+			} else {
+				fmt.Println("Invalid choice.")
+				continue
+			}
+		} else {
+			// Leaf node, select it
+			return selectedName, nil
+		}
+	}
 }
 
 func init() {
