@@ -62,7 +62,7 @@ git clone https://github.com/kuchuk-borom-debbarma/GitGrove.git
 cd GitGrove/cli
 go build -o ../gitgrove ./cmd/main.go
 
-# Optional: Add to PATH
+# Optional: Add to PATH 
 export PATH=$PATH:$(pwd)/..
 ```
 
@@ -71,6 +71,7 @@ export PATH=$PATH:$(pwd)/..
 ```bash
 cd your-monorepo/
 
+# Assumes that you added gitgrove to path
 # Initialize GitGrove (one-time setup)
 gitgrove init
 
