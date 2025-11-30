@@ -38,11 +38,17 @@ func Up(rootAbsPath string) error {
 		return fmt.Errorf("repo '%s' has no parent (it is a root)", currentRepoName)
 	}
 
+	// We need the parent repo object to get its name and default branch
+	parentRepo, ok := repoInfo.Repos[parentName]
+	if !ok {
+		return fmt.Errorf("parent repo '%s' not found in metadata", parentName)
+	}
+
 	// 3. Switch to parent
 	// We use the default branch for now (main)
 	// TODO: Track last active branch for each repo?
-	branchName := "main"
-	if err := CheckoutRepo(rootAbsPath, parentName, branchName, false); err != nil {
+	branch := "main" // Assuming 'main' is the default branch for now
+	if err := CheckoutRepo(rootAbsPath, parentRepo.Repo.Name, branch, false, false); err != nil {
 		return fmt.Errorf("failed to switch to parent repo '%s': %w", parentName, err)
 	}
 	return nil

@@ -307,7 +307,7 @@ func handleCheckout(reader *bufio.Reader, rootPath string) {
 		return
 	}
 
-	if err := core.CheckoutRepo(rootPath, repoName, branch, false); err != nil {
+	if err := core.CheckoutRepo(rootPath, repoName, branch, false, false); err != nil {
 		fmt.Printf("Error checking out branch: %v\n", err)
 	} else {
 		fmt.Println("Checked out branch successfully.")

@@ -41,12 +41,19 @@ func (checkoutCommand) Execute(args map[string]any) error {
 		}
 	}
 
+	flat := false
+	if val, ok := args["flat"]; ok {
+		if b, ok := val.(bool); ok {
+			flat = b
+		}
+	}
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current working directory: %w", err)
 	}
 
-	if err := core.CheckoutRepo(cwd, repoName, branchName, keepEmptyDirs); err != nil {
+	if err := core.CheckoutRepo(cwd, repoName, branchName, keepEmptyDirs, flat); err != nil {
 		return fmt.Errorf("failed to checkout repo: %w", err)
 	}
 

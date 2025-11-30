@@ -385,3 +385,23 @@ func CreateBlob(repoPath, content string) (string, error) {
 	}
 	return strings.TrimSpace(string(out)), nil
 }
+
+// DisableSparseCheckout disables sparse-checkout, restoring the full working tree.
+func DisableSparseCheckout(repoPath string) error {
+	// "git sparse-checkout disable" is available since git 2.25
+	_, err := runGit(repoPath, "sparse-checkout", "disable")
+	return err
+}
+
+// SetSparseCheckout enables sparse-checkout and sets the given patterns.
+func SetSparseCheckout(repoPath string, patterns []string) error {
+	// Initialize if not already (set does init, but explicit init is safer for some versions? set implies init)
+	// "git sparse-checkout set" replaces existing patterns.
+	// We use --no-cone to allow exclusion patterns like !nested/
+	args := append([]string{"sparse-checkout", "set", "--no-cone"}, patterns...)
+	out, err := runGit(repoPath, args...)
+	if err != nil {
+		return fmt.Errorf("git sparse-checkout failed: %s, %w", out, err)
+	}
+	return nil
+}

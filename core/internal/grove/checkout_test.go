@@ -66,7 +66,7 @@ func TestCheckoutRepo(t *testing.T) {
 	}
 
 	// Test Case: Checkout the new branch
-	if err := grove.CheckoutRepo(temp, "child", branchName, false); err != nil {
+	if err := grove.CheckoutRepo(temp, "child", branchName, false, false); err != nil {
 		t.Fatalf("CheckoutRepo failed: %v", err)
 	}
 

@@ -421,6 +421,9 @@ gg checkout backend feature-auth
 
 # Preserve empty directories
 gg checkout backend feature-auth --keep-empty-dirs
+
+# Keep nested repositories visible (flat view)
+gg checkout backend feature-auth --flat
 ```
 
 **What it does:**
@@ -429,6 +432,7 @@ gg checkout backend feature-auth --keep-empty-dirs
 3. Checks out the target branch
 4. You see the flattened view of that repository
 5. Recursively removes empty directories (unless `--keep-empty-dirs` is used)
+6. Hides directories belonging to nested registered repositories (unless `--flat` is used)
 
 **Equivalent to:**
 ```bash
