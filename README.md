@@ -1,137 +1,97 @@
 # GitGrove
 
-**Navigate your monorepo like a filesystem. Version it like Git.**
+**GitGrove** is a Git-based monorepo management tool that enables hierarchical repository organization within a single Git repository. It allows you to work with nested logical repositories while maintaining a unified version control history.
 
-GitGrove transforms a single Git repository into a collection of virtual repositories. Each service or component gets its own isolated workspace, commit history, and navigation—all while sharing one unified Git history underneath.
+## What is GitGrove?
 
----
+GitGrove transforms a standard Git repository into a structured workspace where you can:
 
-## The Problem
+- **Organize code hierarchically**: Define parent-child relationships between logical repositories
+- **Work in isolation**: Switch between repositories and see only relevant files
+- **Maintain unified history**: All changes are tracked in a single Git repository
+- **Preserve Git workflows**: Use familiar Git commands with GitGrove-specific enhancements
 
-You have a monorepo with multiple services:
-```
-ecommerce/
-├── api/              # Your REST API
-├── web/              # React frontend  
-└── services/
-    ├── auth/         # Authentication service
-    ├── payments/     # Payment processor
-    └── inventory/    # Stock management
-```
+## Key Concepts
 
-**Working in this structure is painful:**
-- `git status` shows 100 files, but you only care about auth
-- Your commit history mixes changes from 5 different teams
-- You can't easily see what changed in just the payments service
-- Switching contexts means mentally filtering irrelevant changes
+- **Repositories**: Logical subdivisions of your project (e.g., `backend`, `frontend`, `shared`)
+- **Hierarchy**: Parent-child relationships between repositories (e.g., `shared` → `backend` → `feature-service`)
+- **Flattened View**: When you switch to a repository, you see only its contents at the root level
+- **System Branch**: A special `gitgroove/system` branch stores GitGrove metadata
 
----
-
-## The Solution
-
-GitGrove lets you work on **just one service** at a time, as if it were the entire repository:
+## Quick Example
 
 ```bash
-gitgrove switch auth main
-# Your terminal now shows ONLY auth/ files, flattened to root level!
+# Initialize GitGrove in your Git repository
+gg init
 
-git status           # Shows only auth changes
-git log              # Shows only auth commits  
-gitgrove cd ..       # Navigate back to parent
-gitgrove ls          # See sibling services
+# Register repositories
+gg register backend=./services/backend
+gg register frontend=./services/frontend
+gg register shared=./libs/shared
+
+# Create hierarchy (shared is parent of backend and frontend)
+gg link backend=shared
+gg link frontend=shared
+
+# Switch to backend repository
+gg switch backend
+
+# Work normally - you see only backend files at root level
+gg add .
+gg commit -m "Update backend"
+
+# Navigate to parent
+gg up
+
+# List children
+gg ls
 ```
-
----
-
-## Key Features
-
-- ✅ **Focused Context**: Only see what you're working on
-- ✅ **Isolated History**: Each service has its own commit log
-- ✅ **Filesystem Navigation**: Use `cd` and `ls` to move between services
-- ✅ **100% Git Compatible**: Regular `git push`, `git pull`, `git merge` all work
-- ✅ **No Submodules**: Everything stays in one repo
-
----
-
-## Who Is This For?
-
-GitGrove is ideal for:
-
-- **Monorepo teams** who want service-level isolation without splitting into separate repositories
-- **Developers** tired of filtering through irrelevant changes in `git status` and `git log`
-- **Teams** managing microservices in a single repository
-- **Projects** with nested components that need independent versioning
-- **Anyone** who wants the benefits of polyrepos with the simplicity of a monorepo
-
----
-
-## Quick Start
-
-### Option 1: Interactive Mode (Recommended for Beginners)
-
-```bash
-# Build GitGrove
-git clone https://github.com/kuchuk-borom-debbarma/GitGrove.git
-cd GitGrove/cli
-go build -o ../gitgrove ./cmd/main.go
-
-# Run interactive mode
-cd your-monorepo/
-/path/to/GitGrove/gitgrove interactive
-```
-
-The interactive menu provides a guided experience for all GitGrove operations.
-
----
-
-### Option 2: CLI Mode (For Advanced Users)
-
-> **⚠️ IMPORTANT**: CLI mode requires adding `gitgrove` to your PATH first.
-
-```bash
-# Build and add to PATH
-git clone https://github.com/kuchuk-borom-debbarma/GitGrove.git
-cd GitGrove/cli
-go build -o ../gitgrove ./cmd/main.go
-export PATH=$PATH:$(pwd)/..
-
-# Initialize and use
-cd your-monorepo/
-gitgrove init
-gitgrove register --name auth --path services/auth
-gitgrove switch auth main
-```
-
-**📖 [View Complete CLI Documentation](docs/cli.md)** - All commands, options, and advanced usage
-
----
 
 ## Documentation
 
-### Getting Started
-- **[Quick Start Guide](docs/quickstart.md)** - Step-by-step tutorial
-- **[CLI Reference](docs/cli.md)** - Complete command documentation with examples
-- **[Workflow Guide](docs/workflow.md)** - Daily usage patterns and best practices
+- **[Quick Start Guide](docs/QUICKSTART.md)**: Get up and running in minutes
+- **[Full Documentation](docs/FULL_DOCUMENTATION.md)**: Comprehensive guide covering all features
+- **[Architecture Documentation](docs/architecture.md)**: Detailed system design and implementation patterns
+- **[Technical Documentation](docs/TECHNICAL.md)**: Low-level implementation details
 
-### Technical Documentation
-- **[Architecture](docs/architecture.md)** - Design overview and concepts
-- **[Internals](docs/internals.md)** - Implementation details and how it works
+## Installation
 
----
+```bash
+# Build from source (requires Go 1.25.4+)
+git clone https://github.com/kuchuk-borom-debbarma/GitGrove
+cd GitGrove
+go build -o gg ./cmd/gg
+```
 
-## FAQ
+## Prerequisites
 
-**Q: Is this better than Git submodules?**  
-A: Different use case. Submodules are separate repos with separate histories. GitGrove keeps one unified history but gives you isolated *views* of different parts.
+- Git installed and configured
+- A Git repository (initialize with `git init` if needed)
+- Clean working tree (no uncommitted changes)
 
-**Q: Can I still use regular Git commands?**  
-A: Yes! `git push`, `git pull`, `git merge` all work normally. GitGrove is strictly additive.
+## Core Commands
 
-**Q: What if I make a mistake?**  
-A: Your original `main` branch is never touched. GitGrove only creates new branch refs. You can always `git checkout main` to see your original structure.
+| Command | Description |
+|---------|-------------|
+| `gg init` | Initialize GitGrove in current repository |
+| `gg register <name>=<path>` | Register a repository |
+| `gg link <child>=<parent>` | Create parent-child relationship |
+| `gg switch <repo> [branch]` | Switch to a repository |
+| `gg add <files>` | Stage changes with validation |
+| `gg commit -m <msg>` | Commit with validation |
+| `gg up` | Navigate to parent repository |
+| `gg down <child>` | Navigate to child repository |
+| `gg ls` | List child repositories |
+| `gg info` | Show project status |
 
-**Q: Does it work with large monorepos?**  
-A: Yes. GitGrove is just Git branches, so it scales as well as Git does.
+## When to Use GitGrove
 
----
+**Good fit:**
+- Monorepos with logical subdivisions
+- Projects with shared libraries and dependent services
+- Teams wanting isolation without multiple repositories
+
+**Not ideal for:**
+- Simple single-service projects
+- Repositories with many large binary files
 
