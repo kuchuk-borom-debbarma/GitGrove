@@ -1,4 +1,4 @@
-package doctor
+package info
 
 import (
 	"fmt"
@@ -7,14 +7,14 @@ import (
 	gitUtil "github.com/kuchuk-borom-debbarma/GitGrove/core/internal/util/git"
 )
 
-type BasicDoctor struct {
+type BasicInfo struct {
 	RootPath      string
 	CurrentBranch string
 	IsClean       bool
 	SystemCommit  string
 }
 
-func GetBasicDoctor(rootAbsPath string) (*BasicDoctor, error) {
+func GetBasicInfo(rootAbsPath string) (*BasicInfo, error) {
 	if !gitUtil.IsInsideGitRepo(rootAbsPath) {
 		return nil, fmt.Errorf("not a git repository: %s", rootAbsPath)
 	}
@@ -35,7 +35,7 @@ func GetBasicDoctor(rootAbsPath string) (*BasicDoctor, error) {
 		systemCommit = "not initialized"
 	}
 
-	return &BasicDoctor{
+	return &BasicInfo{
 		RootPath:      rootAbsPath,
 		CurrentBranch: strings.TrimSpace(branch), // Changed from 'branch' to 'strings.TrimSpace(branch)' and fixed variable name
 		IsClean:       isClean,

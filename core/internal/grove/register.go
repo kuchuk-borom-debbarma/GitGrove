@@ -160,12 +160,62 @@ func createRegisterCommit(rootAbsPath, oldTip string, repos map[string]string) (
 		if err := os.WriteFile(pathFile, []byte(cleanPath), 0644); err != nil {
 			return "", fmt.Errorf("failed to write path for repo %s: %w", name, err)
 		}
+
+		// Write marker file in the temp worktree so it gets committed
+		// This ensures that when we are on gitgroove/system, the marker is tracked.
+		// Note: repoDir is .gg/repos/<name>, but the marker should be in the actual repo path?
+		// WAIT. The marker file goes into the ACTUAL repo path, not .gg/repos.
+		// The `createRegisterCommit` function is working in a temp worktree of the ROOT repo.
+		// The `repos` map contains paths relative to root.
+		// So we need to write to `tempDir/<path>/.gitgroverepo`.
+
+		// Let's re-read the plan and the code.
+		// The code currently stages ".gg/repos".
+		// I need to write the marker to `tempDir/<path>/.gitgroverepo` and ALSO stage it.
+	}
+
+	// Write marker files to the actual repo locations in the temp worktree
+	for name, path := range repos {
+		// path is relative to root
+		// We need to write to tempDir/path/.gitgroverepo
+
+		// Canonicalize path again (or reuse cleanPath if I refactor, but let's just re-clean for safety)
+		cleanPath := fileUtil.NormalizePath(path)
+		if filepath.IsAbs(cleanPath) {
+			rel, _ := filepath.Rel(rootAbsPath, cleanPath)
+			cleanPath = fileUtil.NormalizePath(rel)
+		}
+
+		fullPath := filepath.Join(tempDir, cleanPath)
+		if err := os.MkdirAll(fullPath, 0755); err != nil {
+			return "", fmt.Errorf("failed to create repo dir in temp worktree %s: %w", fullPath, err)
+		}
+
+		markerPath := filepath.Join(fullPath, ".gitgroverepo")
+		if err := os.WriteFile(markerPath, []byte(name), 0644); err != nil {
+			return "", fmt.Errorf("failed to write marker in temp worktree %s: %w", markerPath, err)
+		}
 	}
 
 	// 6. Create new commit
 	// Stage everything in .gg/repos
 	if err := gitUtil.StagePath(tempDir, ".gg/repos"); err != nil {
 		return "", fmt.Errorf("failed to stage .gg/repos: %w", err)
+	}
+
+	// Stage marker files
+	for _, path := range repos {
+		// Canonicalize path again
+		cleanPath := fileUtil.NormalizePath(path)
+		if filepath.IsAbs(cleanPath) {
+			rel, _ := filepath.Rel(rootAbsPath, cleanPath)
+			cleanPath = fileUtil.NormalizePath(rel)
+		}
+
+		markerRelPath := filepath.Join(cleanPath, ".gitgroverepo")
+		if err := gitUtil.StagePath(tempDir, markerRelPath); err != nil {
+			return "", fmt.Errorf("failed to stage marker file %s: %w", markerRelPath, err)
+		}
 	}
 
 	if err := gitUtil.Commit(tempDir, fmt.Sprintf("Register %d new repositories", len(repos))); err != nil {

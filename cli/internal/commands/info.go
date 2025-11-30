@@ -7,26 +7,26 @@ import (
 	"github.com/kuchuk-borom-debbarma/GitGrove/core"
 )
 
-type doctorCommand struct{}
+type infoCommand struct{}
 
-func (doctorCommand) Command() string {
-	return "doctor"
+func (infoCommand) Command() string {
+	return "info"
 }
 
-func (doctorCommand) Description() string {
+func (infoCommand) Description() string {
 	return "Check the health and status of the GitGrove system"
 }
 
-func (doctorCommand) ValidateArgs(args map[string]any) error {
+func (infoCommand) ValidateArgs(args map[string]any) error {
 	return nil
 }
 
-func (doctorCommand) Execute(args map[string]any) error {
+func (infoCommand) Execute(args map[string]any) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
 	}
-	output, err := core.Doctor(cwd)
+	output, err := core.Info(cwd)
 	if err != nil {
 		return err
 	}
@@ -35,5 +35,5 @@ func (doctorCommand) Execute(args map[string]any) error {
 }
 
 func init() {
-	registerCommand(doctorCommand{})
+	registerCommand(infoCommand{})
 }

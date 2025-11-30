@@ -1,41 +1,41 @@
-package doctor
+package info
 
 import (
 	"fmt"
 	"strings"
 )
 
-type Doctor struct {
-	Basic *BasicDoctor
-	Repos *RepoDoctor
-	Links *LinkDoctor
+type Info struct {
+	Basic *BasicInfo
+	Repos *RepoInfo
+	Links *LinkInfo
 }
 
-func GetDoctor(rootAbsPath string) (*Doctor, error) {
-	basic, err := GetBasicDoctor(rootAbsPath)
+func GetInfo(rootAbsPath string) (*Info, error) {
+	basic, err := GetBasicInfo(rootAbsPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get basic doctor: %w", err)
+		return nil, fmt.Errorf("failed to get basic info: %w", err)
 	}
 
-	repos, err := GetRepoDoctor(rootAbsPath)
+	repos, err := GetRepoInfo(rootAbsPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get repo doctor: %w", err)
+		return nil, fmt.Errorf("failed to get repo info: %w", err)
 	}
 
-	links := GetLinkDoctor(repos)
+	links := GetLinkInfo(repos)
 
-	return &Doctor{
+	return &Info{
 		Basic: basic,
 		Repos: repos,
 		Links: links,
 	}, nil
 }
 
-func (d *Doctor) String() string {
+func (d *Info) String() string {
 	var sb strings.Builder
 
-	sb.WriteString("GitGrove Doctor\n")
-	sb.WriteString("===============\n\n")
+	sb.WriteString("GitGrove Info\n")
+	sb.WriteString("=============\n\n")
 
 	sb.WriteString(fmt.Sprintf("Root:   %s\n", d.Basic.RootPath))
 	sb.WriteString(fmt.Sprintf("Branch: %s\n", d.Basic.CurrentBranch))

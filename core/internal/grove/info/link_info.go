@@ -1,4 +1,4 @@
-package doctor
+package info
 
 import (
 	"fmt"
@@ -6,8 +6,8 @@ import (
 	"strings"
 )
 
-// LinkDoctor represents the hierarchical structure of repositories.
-type LinkDoctor struct {
+// LinkInfo represents the hierarchical structure of repositories.
+type LinkInfo struct {
 	Roots []*TreeNode
 }
 
@@ -17,11 +17,11 @@ type TreeNode struct {
 	Children []*TreeNode
 }
 
-// GetLinkDoctor builds the hierarchical structure of repositories from a RepoDoctor.
-func GetLinkDoctor(repoDoctor *RepoDoctor) *LinkDoctor {
+// GetLinkInfo builds the hierarchical structure of repositories from a RepoInfo.
+func GetLinkInfo(repoInfo *RepoInfo) *LinkInfo {
 	// Build map of name -> node
 	nodes := make(map[string]*TreeNode)
-	for name, state := range repoDoctor.Repos {
+	for name, state := range repoInfo.Repos {
 		nodes[name] = &TreeNode{
 			State:    state,
 			Children: []*TreeNode{},
@@ -51,7 +51,7 @@ func GetLinkDoctor(repoDoctor *RepoDoctor) *LinkDoctor {
 		sortNodes(node.Children)
 	}
 
-	return &LinkDoctor{Roots: roots}
+	return &LinkInfo{Roots: roots}
 }
 
 func sortNodes(nodes []*TreeNode) {
@@ -61,7 +61,7 @@ func sortNodes(nodes []*TreeNode) {
 }
 
 // String returns a beautiful tree representation of the hierarchy
-func (ld *LinkDoctor) String() string {
+func (ld *LinkInfo) String() string {
 	var sb strings.Builder
 	for _, root := range ld.Roots {
 		ld.printNode(&sb, root, "", true)
@@ -69,7 +69,7 @@ func (ld *LinkDoctor) String() string {
 	return sb.String()
 }
 
-func (ld *LinkDoctor) printNode(sb *strings.Builder, node *TreeNode, prefix string, isLast bool) {
+func (ld *LinkInfo) printNode(sb *strings.Builder, node *TreeNode, prefix string, isLast bool) {
 	sb.WriteString(prefix)
 	if isLast {
 		sb.WriteString("└── ")
