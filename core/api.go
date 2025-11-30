@@ -11,6 +11,11 @@ func Init(absolutePath string) error {
 	return grove.Init(absolutePath)
 }
 
+// IsInitialized checks if GitGrove is initialized in the given path.
+func IsInitialized(rootAbsPath string) (bool, error) {
+	return grove.IsInitialized(rootAbsPath)
+}
+
 // Register records one or more repos (name → path) in the GitGroove metadata.
 func Register(rootAbsPath string, repos map[string]string) error {
 	return grove.Register(rootAbsPath, repos)

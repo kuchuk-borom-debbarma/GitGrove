@@ -2,6 +2,7 @@ package grove
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	fileUtil "github.com/kuchuk-borom-debbarma/GitGrove/core/internal/util/file"
@@ -81,6 +82,23 @@ func Init(absolutePath string) error {
 	log.Info().Msg("GitGroove initialized successfully")
 
 	return nil
+}
+
+// IsInitialized checks if GitGrove is initialized in the given path.
+// It returns true if the .gg directory exists.
+func IsInitialized(absolutePath string) (bool, error) {
+	// Normalize
+	absolutePath = fileUtil.NormalizePath(absolutePath)
+	ggPath := filepath.Join(absolutePath, ".gg")
+
+	_, err := os.Stat(ggPath)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, fmt.Errorf("failed to check for .gg directory: %w", err)
 }
 
 func validateInitEnvironment(absolutePath, ggPath string) error {
