@@ -20,8 +20,8 @@ type RepoInfo struct {
 }
 
 func GetRepoInfo(rootAbsPath string) (*RepoInfo, error) {
-	systemRef := "refs/heads/gitgroove/system"
-	oldTip, err := gitUtil.ResolveRef(rootAbsPath, systemRef)
+	internalRef := "refs/heads/gitgroove/internal"
+	oldTip, err := gitUtil.ResolveRef(rootAbsPath, internalRef)
 	if err != nil {
 		// If system branch doesn't exist, we assume no repos registered or not init
 		return &RepoInfo{Repos: map[string]RepoState{}}, nil

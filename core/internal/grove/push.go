@@ -14,7 +14,7 @@ import (
 // It performs the following steps:
 // 1. Validates the environment (clean state).
 // 2. Stores the current branch to restore it later.
-// 3. Loads metadata from gitgroove/system.
+// 3. Loads metadata from gitgroove/internal.
 // 4. Resolves the target repositories.
 // 5. For each target:
 //   - Switches to the repo's default branch (e.g., main).
@@ -44,9 +44,9 @@ func Push(rootAbsPath string, targets []string) error {
 	}()
 
 	// 3. Load metadata
-	// We need to be on gitgroove/system to read authoritative metadata
-	if err := gitUtil.Checkout(rootAbsPath, "gitgroove/system"); err != nil {
-		return fmt.Errorf("failed to checkout gitgroove/system: %w", err)
+	// We need to be on gitgroove/internal to read authoritative metadata
+	if err := gitUtil.Checkout(rootAbsPath, "gitgroove/internal"); err != nil {
+		return fmt.Errorf("failed to checkout gitgroove/internal: %w", err)
 	}
 
 	repos, err := loadExistingRepos(rootAbsPath, "HEAD")

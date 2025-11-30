@@ -16,7 +16,7 @@ func TestSwitchToSystem_CleansUntrackedFiles(t *testing.T) {
 		t.Fatalf("Init failed: %v", err)
 	}
 
-	// 2. Create gitgroove/system branch
+	// 2. Create gitgroove/internal branch
 	// We need to commit something first to have a branch
 	if err := os.WriteFile(filepath.Join(rootDir, "README.md"), []byte("# Root"), 0644); err != nil {
 		t.Fatalf("WriteFile failed: %v", err)
@@ -29,7 +29,7 @@ func TestSwitchToSystem_CleansUntrackedFiles(t *testing.T) {
 	}
 
 	// Create system branch
-	if err := gitUtil.CreateBranch(rootDir, "gitgroove/system", "HEAD"); err != nil {
+	if err := gitUtil.CreateBranch(rootDir, "gitgroove/internal", "HEAD"); err != nil {
 		t.Fatalf("CreateBranch failed: %v", err)
 	}
 
@@ -62,7 +62,7 @@ func TestSwitchToSystem_CleansUntrackedFiles(t *testing.T) {
 	}
 
 	// 5. Switch to system
-	// Note: gitgroove/system does NOT have the .gitignore we just added to child-branch
+	// Note: gitgroove/internal does NOT have the .gitignore we just added to child-branch
 	// So temp.log will become untracked.
 	if err := grove.SwitchToSystem(rootDir); err != nil {
 		t.Fatalf("SwitchToSystem failed: %v", err)
@@ -73,8 +73,8 @@ func TestSwitchToSystem_CleansUntrackedFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetCurrentBranch failed: %v", err)
 	}
-	if currentBranch != "gitgroove/system" {
-		t.Errorf("Expected branch gitgroove/system, got %s", currentBranch)
+	if currentBranch != "gitgroove/internal" {
+		t.Errorf("Expected branch gitgroove/internal, got %s", currentBranch)
 	}
 
 	// 7. Verify temp.log is GONE (cleaned)

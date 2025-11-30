@@ -7,7 +7,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// SwitchToSystem switches the working tree to the gitgroove/system branch.
+// SwitchToSystem switches the working tree to the gitgroove/internal branch.
 // This provides the "System Root" view where all root repositories are visible.
 func SwitchToSystem(rootAbsPath string) error {
 	log.Info().Msg("Switching to System Root view...")
@@ -18,7 +18,7 @@ func SwitchToSystem(rootAbsPath string) error {
 	}
 
 	// 2. Checkout system branch
-	if err := gitUtil.Checkout(rootAbsPath, "gitgroove/system"); err != nil {
+	if err := gitUtil.Checkout(rootAbsPath, "gitgroove/internal"); err != nil {
 		return fmt.Errorf("failed to checkout system branch: %w", err)
 	}
 

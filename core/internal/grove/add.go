@@ -28,6 +28,11 @@ func Add(rootAbsPath string, files []string) error {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
 
+	// 1.1. Protection: Reject staging on gitgroove/internal branch
+	if currentBranch == "gitgroove/internal" {
+		return fmt.Errorf("cannot stage files on gitgroove/internal branch - this branch is managed by GitGrove and should not be modified directly")
+	}
+
 	// Expected format: gitgroove/repos/<repoName>/branches/<branchName>
 	targetRepoName, err := ParseRepoFromBranch(currentBranch)
 	if err != nil {
@@ -35,10 +40,10 @@ func Add(rootAbsPath string, files []string) error {
 	}
 
 	// 2. Load repo metadata to get the path
-	systemRef := "refs/heads/gitgroove/system"
-	oldTip, err := gitUtil.ResolveRef(rootAbsPath, systemRef)
+	internalRef := "refs/heads/gitgroove/internal"
+	oldTip, err := gitUtil.ResolveRef(rootAbsPath, internalRef)
 	if err != nil {
-		return fmt.Errorf("failed to resolve %s: %w", systemRef, err)
+		return fmt.Errorf("failed to resolve %s: %w", internalRef, err)
 	}
 
 	repos, err := loadExistingRepos(rootAbsPath, oldTip)

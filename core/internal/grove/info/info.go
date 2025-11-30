@@ -55,7 +55,7 @@ func (d *Info) String() string {
 		cleanState = "Dirty"
 	}
 	sb.WriteString(fmt.Sprintf("State:  %s\n", cleanState))
-	sb.WriteString(fmt.Sprintf("System: %s\n\n", d.Basic.SystemCommit))
+	sb.WriteString(fmt.Sprintf("System: %s\n\n", d.Basic.InternalCommit))
 
 	sb.WriteString("Registered Repositories:\n")
 	sb.WriteString("------------------------\n")

@@ -16,7 +16,7 @@ GitGrove transforms a standard Git repository into a structured workspace where 
 - **Repositories**: Logical subdivisions of your project (e.g., `backend`, `frontend`, `shared`)
 - **Hierarchy**: Parent-child relationships between repositories (e.g., `shared` → `backend` → `feature-service`)
 - **Flattened View**: When you switch to a repository, you see only its contents at the root level
-- **System Branch**: A special `gitgroove/system` branch stores GitGrove metadata
+- **System Branch**: A special `gitgroove/internal` branch stores GitGrove metadata
 
 ## Quick Example
 

@@ -93,15 +93,15 @@ func TestInitOnCleanRepo(t *testing.T) {
 	}
 
 	// Verify system branch exists
-	exists, err := gitUtil.HasBranch(temp, "gitgroove/system")
+	exists, err := gitUtil.HasBranch(temp, "gitgroove/internal")
 	if err != nil || !exists {
-		t.Fatalf("gitgroove/system branch missing")
+		t.Fatalf("gitgroove/internal branch missing")
 	}
 
 	// Verify HEAD is on system branch
 	head := execGit(t, temp, "branch", "--show-current")
-	if head != "gitgroove/system" {
-		t.Fatalf("expected HEAD on gitgroove/system, got %s", head)
+	if head != "gitgroove/internal" {
+		t.Fatalf("expected HEAD on gitgroove/internal, got %s", head)
 	}
 
 	// Metadata should be committed

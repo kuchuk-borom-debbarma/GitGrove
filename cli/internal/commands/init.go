@@ -20,7 +20,7 @@ Usage:
 
 Note:
   Must be run from within a Git repository
-  Creates the gitgroove/system branch for metadata`
+  Creates the gitgroove/internal branch for metadata`
 }
 
 func (initCommand) ValidateArgs(args map[string]any) error {

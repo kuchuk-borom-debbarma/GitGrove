@@ -55,7 +55,7 @@ func TestMove(t *testing.T) {
 	}
 
 	// Verify metadata
-	pathContent, err := gitUtil.ShowFile(temp, "gitgroove/system", ".gg/repos/backend/path")
+	pathContent, err := gitUtil.ShowFile(temp, "gitgroove/internal", ".gg/repos/backend/path")
 	if err != nil {
 		t.Fatalf("failed to read metadata: %v", err)
 	}

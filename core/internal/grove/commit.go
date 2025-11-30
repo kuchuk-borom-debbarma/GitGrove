@@ -30,17 +30,22 @@ func Commit(rootAbsPath, message string) error {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
 
+	// 2.1. Protection: Reject commits on gitgroove/internal branch
+	if currentBranch == "gitgroove/internal" {
+		return fmt.Errorf("cannot commit on gitgroove/internal branch - this branch is managed by GitGrove and should not be modified directly")
+	}
+
 	// 3. Extract repo name from branch
 	targetRepoName, err := ParseRepoFromBranch(currentBranch)
 	if err != nil {
 		return err
 	}
 
-	// 4. Load metadata from gitgroove/system (WITHOUT checkout)
-	systemRef := "refs/heads/gitgroove/system"
-	oldTip, err := gitUtil.ResolveRef(rootAbsPath, systemRef)
+	// 4. Load metadata from gitgroove/internal (WITHOUT checkout)
+	internalRef := "refs/heads/gitgroove/internal"
+	oldTip, err := gitUtil.ResolveRef(rootAbsPath, internalRef)
 	if err != nil {
-		return fmt.Errorf("failed to resolve %s: %w", systemRef, err)
+		return fmt.Errorf("failed to resolve %s: %w", internalRef, err)
 	}
 
 	repos, err := loadExistingRepos(rootAbsPath, oldTip)

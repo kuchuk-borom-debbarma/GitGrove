@@ -37,7 +37,7 @@ func TestRegister(t *testing.T) {
 
 	// Verify .gg/repos content
 	// Check backend repo
-	backendPathContent, err := gitUtil.ShowFile(temp, "gitgroove/system", ".gg/repos/backend/path")
+	backendPathContent, err := gitUtil.ShowFile(temp, "gitgroove/internal", ".gg/repos/backend/path")
 	if err != nil {
 		t.Fatalf("failed to read backend path: %v", err)
 	}
@@ -46,7 +46,7 @@ func TestRegister(t *testing.T) {
 	}
 
 	// Check frontend repo
-	frontendPathContent, err := gitUtil.ShowFile(temp, "gitgroove/system", ".gg/repos/frontend/path")
+	frontendPathContent, err := gitUtil.ShowFile(temp, "gitgroove/internal", ".gg/repos/frontend/path")
 	if err != nil {
 		t.Fatalf("failed to read frontend path: %v", err)
 	}

@@ -88,14 +88,14 @@ The repository's contents appear at the root level, isolating you from other par
 
 GitGrove uses a special branch naming convention:
 
-- **System branch**: `gitgroove/system` (stores metadata)
+- **Internal branch**: `gitgroove/internal` (stores metadata)
 - **Repo branches**: `gitgroove/repos/<repo>/branches/<branch>`
 
 Example: `gitgroove/repos/backend/branches/feature-auth`
 
 ### Metadata
 
-GitGrove stores metadata in `.gg/` directory on the `gitgroove/system` branch:
+GitGrove stores metadata in `.gg/` directory on the `gitgroove/internal` branch:
 
 ```
 .gg/
@@ -144,7 +144,7 @@ Initializes GitGrove in the current Git repository.
 - Must be inside a Git repository
 - Working tree must be clean (no uncommitted changes)
 - `.gg/` directory must not exist
-- `gitgroove/system` branch must not exist
+- `gitgroove/internal` branch must not exist
 
 **Usage:**
 ```bash
@@ -154,17 +154,17 @@ gg init
 **What it does:**
 1. Creates `.gg/repos/` directory structure
 2. Creates `.gg/repos/.gitkeep` file
-3. Creates and checks out `gitgroove/system` branch
+3. Creates and checks out `gitgroove/internal` branch
 4. Commits initial metadata structure
 
 **After initialization:**
-- You'll be on the `gitgroove/system` branch
+- You'll be on the `gitgroove/internal` branch
 - Switch back to your working branch: `git checkout main`
 
 **Errors:**
 - "not a valid Git repository" - Not inside a Git repo
 - "working tree is not clean" - Uncommitted changes exist
-- "GitGroove already initialized" - `.gg/` or system branch exists
+- "GitGroove already initialized" - `.gg/` or internal branch exists
 
 ---
 
@@ -175,7 +175,7 @@ Registers one or more repositories in GitGrove.
 **Prerequisites:**
 - GitGrove must be initialized (`gg init`)
 - Working tree must be clean
-- Must be on a user branch (not `gitgroove/system`)
+- Must be on a user branch (not `gitgroove/internal`)
 - Target directories must exist
 
 **Usage:**
@@ -203,8 +203,8 @@ gg register root=.
 2. Creates `.gg/repos/<name>/path` files with paths
 3. Creates `.gitgroverepo` marker files in each directory
 4. Creates orphan branches: `gitgroove/repos/<name>/branches/main`
-5. Commits metadata to `gitgroove/system`
-6. Stages marker files in current branch (if on `gitgroove/system`)
+5. Commits metadata to `gitgroove/internal`
+6. Stages marker files in current branch (if on `gitgroove/internal`)
 
 **After registration:**
 - Marker files (`.gitgroverepo`) are created but may be untracked
@@ -249,7 +249,7 @@ gg link backend=shared frontend=shared api=backend
 1. Validates relationships (existence, no cycles)
 2. Creates `.gg/repos/<child>/parent` files
 3. Creates `.gg/repos/<parent>/children/<child>` files
-4. Commits to `gitgroove/system`
+4. Commits to `gitgroove/internal`
 
 **Cycle detection:**
 GitGrove builds the full graph (existing + new edges) and detects cycles using depth-first search.
@@ -282,7 +282,7 @@ gg switch backend feature-auth
 ```
 
 **What it does:**
-1. Checks out `gitgroove/system` to load fresh metadata
+1. Checks out `gitgroove/internal` to load fresh metadata
 2. Validates repository exists
 3. Constructs target branch: `gitgroove/repos/<repo>/branches/<branch>`
 4. Checks out the target branch
@@ -303,7 +303,7 @@ If no branch specified, defaults to `main`.
 Stages files with GitGrove-specific validation.
 
 **Prerequisites:**
-- Must be on a GitGrove repo branch (not `main`, not `gitgroove/system`)
+- Must be on a GitGrove repo branch (not `main`, not `gitgroove/internal`)
 - Files must exist or be tracked
 
 **Usage:**
@@ -337,7 +337,7 @@ Invalid files are skipped with warnings, valid files are still staged.
 **Errors:**
 - "not a git repository" - Not in Git repo
 - "not a valid GitGrove repo branch" - On wrong branch
-- "failed to load repo metadata" - System branch issue
+- "failed to load repo metadata" - Internal branch issue
 
 ---
 
@@ -390,7 +390,7 @@ gg branch backend feature-auth
 ```
 
 **What it does:**
-1. Checks out `gitgroove/system` to load metadata
+1. Checks out `gitgroove/internal` to load metadata
 2. Validates repository exists
 3. Gets the repository's subtree from current HEAD
 4. Creates a commit with that subtree as root tree
@@ -427,7 +427,7 @@ gg checkout backend feature-auth --flat
 ```
 
 **What it does:**
-1. Checks out `gitgroove/system` to load metadata
+1. Checks out `gitgroove/internal` to load metadata
 2. Validates repository and branch exist
 3. Checks out the target branch
 4. You see the flattened view of that repository
@@ -464,7 +464,7 @@ gg move backend api/backend
 1. Validates repository exists and new path is available
 2. Moves the directory physically on disk
 3. Updates `.gg/repos/<repo>/path` metadata
-4. Commits to `gitgroove/system`
+4. Commits to `gitgroove/internal`
 
 **Identity preserved:**
 - Repository name stays the same
@@ -626,7 +626,7 @@ shared (libs/shared)
 - Current root directory
 - Current branch
 - Working tree state (Clean/Dirty)
-- System branch commit hash
+- Internal branch commit hash
 - Hierarchical tree of all repositories
 - Current repository marked with `*`
 - Missing repositories marked with `[MISSING]`
@@ -723,9 +723,9 @@ gg move backend api/core/backend
 
 ### Understanding Branch Structure
 
-**System branch:**
+**Internal branch:**
 ```
-gitgroove/system
+gitgroove/internal
 └── commits: metadata changes only
     └── files: .gg/repos/*/path, parent, children
 ```
@@ -756,8 +756,8 @@ GitGrove maintains consistency through:
 
 1. **Atomic updates** - Metadata commits are CAS-based
 2. **Pre-validation** - All inputs checked before changes
-3. **System branch isolation** - Metadata never mixed with user data
-4. **Fresh metadata loading** - Always reads from `gitgroove/system`
+3. **Internal branch isolation** - Metadata never mixed with user data
+4. **Fresh metadata loading** - Always reads from `gitgroove/internal`
 
 ### Working with Standard Git
 
@@ -855,7 +855,7 @@ echo ".gitgroverepo" >> .gitignore
 
 **Coordination:**
 1. Only one person should run `register`/`link`/`move` at a time
-2. Pull `gitgroove/system` branch before structural changes
+2. Pull `gitgroove/internal` branch before structural changes
 3. Communicate repository structure changes to team
 
 **Onboarding:**
@@ -1027,12 +1027,12 @@ gg switch <repo>
 
 **Symptoms:**
 - Commands fail with "failed to load repo metadata"
-- `gitgroove/system` branch issues
+- `gitgroove/internal` branch issues
 
 **Recovery:**
 ```bash
-# Check system branch
-git checkout gitgroove/system
+# Check internal branch
+git checkout gitgroove/internal
 git log --oneline -10
 git diff HEAD~1
 
@@ -1068,7 +1068,7 @@ echo "<repo-name>" > .gitgroverepo
 - **Repository**: Logical subdivision of your project
 - **Hierarchy**: Parent-child relationships between repositories
 - **Flattened View**: Repository contents displayed at root level
-- **System Branch**: Special branch storing GitGrove metadata (`gitgroove/system`)
+- **System Branch**: Special branch storing GitGrove metadata (`gitgroove/internal`)
 - **Repo Branch**: Branch specific to a repository (`gitgroove/repos/<n>/branches/<b>`)
 - **Marker File**: `.gitgroverepo` file identifying repository boundaries
 - **Metadata**: GitGroove configuration stored in `.gg/` directory

@@ -25,9 +25,9 @@ func TestLink(t *testing.T) {
 		t.Fatalf("Init failed: %v", err)
 	}
 
-	// Switch back to default branch because Init leaves us on gitgroove/system
+	// Switch back to default branch because Init leaves us on gitgroove/internal
 	// and Register/Link expect to run from a user branch.
-	// If we stay on gitgroove/system, Register's update-ref will make the index appear dirty.
+	// If we stay on gitgroove/internal, Register's update-ref will make the index appear dirty.
 	execGit(t, temp, "checkout", defaultBranch)
 
 	// Create directories for repos
@@ -64,7 +64,7 @@ func TestLink(t *testing.T) {
 
 	// Verify .gg/repos content
 	// Check backend parent
-	backendParent, err := gitUtil.ShowFile(temp, "gitgroove/system", ".gg/repos/backend/parent")
+	backendParent, err := gitUtil.ShowFile(temp, "gitgroove/internal", ".gg/repos/backend/parent")
 	if err != nil {
 		t.Fatalf("failed to read backend parent: %v", err)
 	}
@@ -74,7 +74,7 @@ func TestLink(t *testing.T) {
 
 	// Check shared children
 	// .gg/repos/shared/children/backend should exist
-	_, err = gitUtil.ShowFile(temp, "gitgroove/system", ".gg/repos/shared/children/backend")
+	_, err = gitUtil.ShowFile(temp, "gitgroove/internal", ".gg/repos/shared/children/backend")
 	if err != nil {
 		t.Errorf("expected child entry for backend in shared, got error: %v", err)
 	}

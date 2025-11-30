@@ -15,7 +15,7 @@ import (
 //
 // This function:
 // 1. Validates the environment.
-// 2. Loads existing repos from gitgroove/system.
+// 2. Loads existing repos from gitgroove/internal.
 // 3. Constructs the ancestry chain for the target repo.
 // 4. Creates the branch ref pointing to the current project HEAD.
 func CreateRepoBranch(rootAbsPath, repoName, branchName string) error {
@@ -27,8 +27,8 @@ func CreateRepoBranch(rootAbsPath, repoName, branchName string) error {
 		return err
 	}
 
-	// 2. Read latest gitgroove/system commit
-	systemRef := "refs/heads/gitgroove/system"
+	// 2. Read latest gitgroove/internal commit
+	systemRef := "refs/heads/gitgroove/internal"
 	oldTip, err := gitUtil.ResolveRef(rootAbsPath, systemRef)
 	if err != nil {
 		return fmt.Errorf("failed to resolve %s (is GitGroove initialized?): %w", systemRef, err)
