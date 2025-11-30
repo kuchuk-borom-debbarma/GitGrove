@@ -64,6 +64,11 @@ func Move(rootAbsPath, repoName, newRelPath string) error {
 	return grove.Move(rootAbsPath, repoName, newRelPath)
 }
 
+// Push pushes the specified repositories to their configured remotes.
+func Push(rootAbsPath string, targets []string) error {
+	return grove.Push(rootAbsPath, targets)
+}
+
 // Up switches the working tree to the parent repository's branch.
 func Up(rootAbsPath string) error {
 	return grove.Up(rootAbsPath)
