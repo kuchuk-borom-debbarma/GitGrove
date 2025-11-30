@@ -98,7 +98,7 @@ assert_dir_exists ".gg" "Init"
 assert_dir_exists ".gg/repos" "Init"
 assert_file_exists ".gg/repos/.gitkeep" "Init"
 CURRENT_BRANCH=$(git branch --show-current)
-assert_contains "$CURRENT_BRANCH" "gitgroove/system" "Init - should be on system branch"
+assert_contains "$CURRENT_BRANCH" "gitgroove/internal" "Init - should be on system branch"
 
 # ============================================
 # TEST 2: Register (Single)
@@ -106,8 +106,8 @@ assert_contains "$CURRENT_BRANCH" "gitgroove/system" "Init - should be on system
 info "TEST 2: Testing 'register' command (single repo)..."
 mkdir -p repo/backend
 "$GG_BIN" register --name root --path .
-# Check metadata in gitgroove/system branch
-git checkout gitgroove/system 2>/dev/null
+# Check metadata in gitgroove/internal branch
+git checkout gitgroove/internal 2>/dev/null
 assert_dir_exists ".gg/repos/root" "Register - root repo metadata dir"
 assert_file_exists ".gg/repos/root/path" "Register - root repo path file"
 git checkout - 2>/dev/null
@@ -125,8 +125,8 @@ mkdir -p repo/backend/service-b
 "$GG_BIN" register --name frontend --path repo/frontend
 "$GG_BIN" register --name service-a --path repo/backend/service-a
 "$GG_BIN" register --name service-b --path repo/backend/service-b
-# Check metadata in gitgroove/system branch
-git checkout gitgroove/system 2>/dev/null
+# Check metadata in gitgroove/internal branch
+git checkout gitgroove/internal 2>/dev/null
 assert_dir_exists ".gg/repos/backend" "Register - backend repo metadata"
 assert_dir_exists ".gg/repos/frontend" "Register - frontend repo metadata"
 assert_dir_exists ".gg/repos/service-a" "Register - service-a repo metadata"
@@ -263,7 +263,7 @@ mkdir -p new-location
 "$GG_BIN" move --repo backend --to new-location/backend
 assert_dir_exists "new-location/backend" "Move - backend moved to new location"
 # Check metadata - need to reset to HEAD to see committed changes
-git checkout gitgroove/system 2>/dev/null
+git checkout gitgroove/internal 2>/dev/null
 git reset --hard HEAD 2>/dev/null
 PATH_CONTENT=$(cat .gg/repos/backend/path)
 assert_contains "$PATH_CONTENT" "new-location/backend" "Move - metadata updated"
@@ -286,7 +286,7 @@ set -e
 info "TEST 18: Testing 'cd' to system root..."
 "$GG_BIN" cd ~
 CURRENT_BRANCH=$(git branch --show-current)
-assert_contains "$CURRENT_BRANCH" "gitgroove/system" "Cd ~ - on system branch"
+assert_contains "$CURRENT_BRANCH" "gitgroove/internal" "Cd ~ - on system branch"
 
 # ============================================
 # TEST 19: Ls from System Root

@@ -22,8 +22,8 @@ gg init
 
 **What happens:**
 - Creates `.gg/` directory for metadata
-- Creates `gitgroove/system` branch for tracking metadata
-- Leaves you on the system branch
+- Creates `gitgroove/internal` branch for tracking metadata
+- Leaves you on the internal branch
 
 **Important:** After initialization, switch back to your main branch:
 
@@ -53,7 +53,7 @@ gg register shared=./libs/shared
 - Creates metadata in `.gg/repos/<name>/path`
 - Creates `.gitgroverepo` marker files in each directory
 - Creates initial orphan branches for each repo: `gitgroove/repos/<name>/branches/main`
-- Automatically commits marker files to `gitgroove/system`
+- Automatically commits marker files to `gitgroove/internal`
 
 **After registration:** Commit the marker files to your working branch if you want them tracked:
 
@@ -82,7 +82,7 @@ gg link frontend=shared
 **What happens:**
 - Updates metadata: `.gg/repos/backend/parent` → "shared"
 - Creates child pointers: `.gg/repos/shared/children/backend`
-- Commits changes to `gitgroove/system`
+- Commits changes to `gitgroove/internal`
 
 ## Step 4: Switch to a Repository
 
@@ -100,7 +100,7 @@ gg switch backend
 **Rules:**
 - Working tree must be clean before switching
 - Repository must exist and be registered
-- GitGrove always checks out `gitgroove/system` first to load fresh metadata
+- GitGrove always checks out `gitgroove/internal` first to load fresh metadata
 
 ## Step 5: Work with Files
 
@@ -118,7 +118,7 @@ gg commit -m "Add new feature"
 ```
 
 **Validation rules for `gg add`:**
-- Must be on a GitGrove repo branch (not `main`, not `gitgroove/system`)
+- Must be on a GitGrove repo branch (not `main`, not `gitgroove/internal`)
 - Files must be within the current repository's scope
 - Cannot stage `.gg/` metadata files
 - Cannot stage files from nested repositories

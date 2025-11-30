@@ -19,7 +19,7 @@ specified repo and (optionally) branch name.
 
 Switch:
   - First ensures the working tree is clean.
-  - Then checks out the latest committed gitgroove/system branch to load
+  - Then checks out the latest committed gitgroove/internal branch to load
     authoritative metadata (.gg/repos).
   - Resolves the full ancestry chain of the requested repo.
   - Constructs the GitGroove repo branch ref:
@@ -36,17 +36,17 @@ Switch DOES NOT:
 =               MANDATORY PRE-STEP (CRITICAL)             =
 ===========================================================
 
-Switch MUST always begin by checking out the latest gitgroove/system commit.
+Switch MUST always begin by checking out the latest gitgroove/internal commit.
 
 Reason:
-  - All metadata lives ONLY on gitgroove/system.
+  - All metadata lives ONLY on gitgroove/internal.
   - Other working branches may not contain .gg/ at all.
   - Derived branch structures depend on committed hierarchy, not working state.
   - Guarantees deterministic behavior and prevents stale metadata usage.
 
 Flow:
  1. Ensure working tree is clean.
- 2. `git checkout gitgroove/system`
+ 2. `git checkout gitgroove/internal`
  3. Reload metadata from .gg/repos
  4. Continue Switch logic.
 
@@ -61,7 +61,7 @@ Given: Switch(repoName, branchName)
   - Repo must exist in committed metadata.
 
 2. Checkout system branch:
-  - `git checkout gitgroove/system`
+  - `git checkout gitgroove/internal`
   - Ensures .gg/ is in correct, authoritative state.
 
 3. Determine branch name:
@@ -89,7 +89,7 @@ Given: Switch(repoName, branchName)
 • Switch always uses fresh metadata (never stale .gg).
 • No metadata is modified.
 • No derived branches are created or rebuilt.
-• Switch either fully succeeds or leaves the user on gitgroove/system.
+• Switch either fully succeeds or leaves the user on gitgroove/internal.
 • Repo ancestry resolution is always based on committed system state.
 */
 func Switch(rootAbsPath, repoName, branch string) error {
@@ -98,13 +98,13 @@ func Switch(rootAbsPath, repoName, branch string) error {
 		return err
 	}
 
-	// 2. Checkout gitgroove/system to load authoritative metadata
+	// 2. Checkout gitgroove/internal to load authoritative metadata
 	// This is CRITICAL: we must be on the system branch to read the correct .gg/ state.
 	// We use "force" checkout? No, we already validated clean state.
 	// Standard checkout is fine.
-	log.Info().Msg("Checking out gitgroove/system to load metadata")
-	if err := gitUtil.Checkout(rootAbsPath, "gitgroove/system"); err != nil {
-		return fmt.Errorf("failed to checkout gitgroove/system: %w", err)
+	log.Info().Msg("Checking out gitgroove/internal to load metadata")
+	if err := gitUtil.Checkout(rootAbsPath, "gitgroove/internal"); err != nil {
+		return fmt.Errorf("failed to checkout gitgroove/internal: %w", err)
 	}
 
 	// 3. Load existing repos from the system branch (which is now HEAD)

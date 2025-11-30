@@ -13,7 +13,7 @@ import (
 
 /*
 Link defines hierarchy relationships (childName → parentName) and updates GitGroove metadata.
-It operates atomically against the latest committed state of gitgroove/system.
+It operates atomically against the latest committed state of gitgroove/internal.
 
 High-Level Responsibility:
   - Connects registered repos into a parent→child tree.
@@ -35,11 +35,11 @@ func Link(rootAbsPath string, relationships map[string]string) error {
 		return err
 	}
 
-	// 2. Read latest gitgroove/system commit
-	systemRef := "refs/heads/gitgroove/system"
-	oldTip, err := gitUtil.ResolveRef(rootAbsPath, systemRef)
+	// 2. Read latest gitgroove/internal commit
+	internalRef := "refs/heads/gitgroove/internal"
+	oldTip, err := gitUtil.ResolveRef(rootAbsPath, internalRef)
 	if err != nil {
-		return fmt.Errorf("failed to resolve %s (is GitGroove initialized?): %w", systemRef, err)
+		return fmt.Errorf("failed to resolve %s (is GitGrove initialized?): %w", internalRef, err)
 	}
 
 	// 3. Load existing repo metadata
@@ -59,15 +59,15 @@ func Link(rootAbsPath string, relationships map[string]string) error {
 		return err
 	}
 
-	// 7. Atomically update gitgroove/system
-	if err := gitUtil.UpdateRef(rootAbsPath, systemRef, newTip, oldTip); err != nil {
-		return fmt.Errorf("failed to update %s (concurrent modification?): %w", systemRef, err)
+	// 7. Atomically update gitgroove/internal
+	if err := gitUtil.UpdateRef(rootAbsPath, internalRef, newTip, oldTip); err != nil {
+		return fmt.Errorf("failed to update %s (concurrent modification?): %w", internalRef, err)
 	}
 
-	// If we are currently on the system branch, we must update the working tree to match the new commit.
+	// If we are currently on the internal branch, we must update the working tree to match the new commit.
 	currentBranch, err := gitUtil.GetCurrentBranch(rootAbsPath)
-	if err == nil && currentBranch == "gitgroove/system" {
-		log.Info().Msg("Updating working tree to match new system state")
+	if err == nil && currentBranch == "gitgroove/internal" {
+		log.Info().Msg("Updating working tree to match new internal state")
 		if err := gitUtil.ResetHard(rootAbsPath, "HEAD"); err != nil {
 			return fmt.Errorf("failed to update working tree: %w", err)
 		}

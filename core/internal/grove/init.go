@@ -16,14 +16,14 @@ import (
 //
 //	Init bootstraps the GitGroove metadata structure within an existing Git repository.
 //	It creates the hidden .gg directory, initializes the .gg/repos structure, and establishes
-//	the detached gitgroove/system branch to track metadata history.
+//	the detached gitgroove/internal branch to track metadata history.
 //
 // Requirements / invariants:
 //   - absolutePath must point to a valid, existing Git repository.
 //   - The repository working tree must be 100% clean (no staged, unstaged, or untracked changes)
 //     to ensure safe branch creation and switching.
 //   - The .gg directory must not already exist (idempotency check).
-//   - The gitgroove/system branch must not already exist.
+//   - The gitgroove/internal branch must not already exist.
 //
 // Step-by-step algorithm:
 //
@@ -32,7 +32,7 @@ import (
 //     • Verify it is a Git repository.
 //     • Verify the working tree is clean.
 //     • Verify .gg does not exist.
-//     • Verify gitgroove/system branch does not exist.
+//     • Verify gitgroove/internal branch does not exist.
 //     If any check fails → abort immediately.
 //
 //  2. Create metadata directory structure:
@@ -40,18 +40,18 @@ import (
 //     • Create .gg/repos directory.
 //     • Create .gg/repos/.gitkeep to ensure git tracks the directory even if empty.
 //
-//  3. Initialize system branch:
-//     • Create and checkout a new orphan-like branch 'gitgroove/system'.
+//  3. Initialize internal branch:
+//     • Create and checkout a new orphan-like branch 'gitgroove/internal'.
 //     (Note: In this implementation, it branches off the current HEAD, effectively making
 //     history shared until this point, or it might be intended as an orphan.
 //     The current implementation uses `checkout -b`, which branches from current HEAD.)
 //
 //  4. Commit initial state:
 //     • Stage the .gg directory.
-//     • Commit with message "Initialize GitGroove system branch".
+//     • Commit with message "Initialize GitGroove internal branch".
 //
 //  5. Result:
-//     • The user is left on the gitgroove/system branch (based on current implementation).
+//     • The user is left on the gitgroove/internal branch (based on current implementation).
 //     • .gg exists and is tracked.
 //
 // Atomicity:
@@ -75,7 +75,7 @@ func Init(absolutePath string) error {
 		return err
 	}
 
-	if err := initializeSystemBranch(absolutePath); err != nil {
+	if err := initializeInternalBranch(absolutePath); err != nil {
 		return err
 	}
 
@@ -117,13 +117,13 @@ func validateInitEnvironment(absolutePath, ggPath string) error {
 		return fmt.Errorf("GitGroove already initialized: %w", err)
 	}
 
-	// Ensure system branch does NOT already exist
-	exists, err := git.HasBranch(absolutePath, "gitgroove/system")
+	// Ensure internal branch does NOT already exist
+	exists, err := git.HasBranch(absolutePath, "gitgroove/internal")
 	if err != nil {
-		return fmt.Errorf("failed checking system branch: %w", err)
+		return fmt.Errorf("failed checking internal branch: %w", err)
 	}
 	if exists {
-		return fmt.Errorf("gitgroove/system branch already exists — GitGroove may already be initialized")
+		return fmt.Errorf("gitgroove/internal branch already exists — GitGroove may already be initialized")
 	}
 	return nil
 }
@@ -150,10 +150,10 @@ func createMetadataDirectories(ggPath string) error {
 	return nil
 }
 
-func initializeSystemBranch(absolutePath string) error {
-	// Create and checkout system branch
-	if err := git.CreateAndCheckoutBranch(absolutePath, "gitgroove/system"); err != nil {
-		return fmt.Errorf("failed creating system branch: %w", err)
+func initializeInternalBranch(absolutePath string) error {
+	// Create and checkout internal branch
+	if err := git.CreateAndCheckoutBranch(absolutePath, "gitgroove/internal"); err != nil {
+		return fmt.Errorf("failed creating internal branch: %w", err)
 	}
 
 	// Stage .gg
@@ -162,7 +162,7 @@ func initializeSystemBranch(absolutePath string) error {
 	}
 
 	// Commit
-	if err := git.Commit(absolutePath, "Initialize GitGroove system branch"); err != nil {
+	if err := git.Commit(absolutePath, "Initialize GitGroove internal branch"); err != nil {
 		return fmt.Errorf("failed committing metadata: %w", err)
 	}
 	return nil

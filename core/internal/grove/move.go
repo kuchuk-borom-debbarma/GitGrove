@@ -13,16 +13,16 @@ import (
 /*
 Move relocates a registered repository to a new path within the project.
 
-It operates atomically on the gitgroove/system branch to update metadata,
+It operates atomically on the gitgroove/internal branch to update metadata,
 and physically moves the directory on disk.
 
 High-Level Responsibility:
   - Validates environment and inputs.
-  - Checks out gitgroove/system to load authoritative metadata.
+  - Checks out gitgroove/internal to load authoritative metadata.
   - Verifies repo existence and new path availability.
   - Moves the directory on disk.
   - Updates .gg/repos/<name>/path.
-  - Commits the change to gitgroove/system.
+  - Commits the change to gitgroove/internal.
 
 Guarantees:
   - Atomic metadata update.
@@ -37,11 +37,11 @@ func Move(rootAbsPath, repoName, newRelPath string) error {
 		return err
 	}
 
-	// 2. Resolve gitgroove/system ref
-	systemRef := "refs/heads/gitgroove/system"
-	oldTip, err := gitUtil.ResolveRef(rootAbsPath, systemRef)
+	// 2. Resolve gitgroove/internal ref
+	internalRef := "refs/heads/gitgroove/internal"
+	oldTip, err := gitUtil.ResolveRef(rootAbsPath, internalRef)
 	if err != nil {
-		return fmt.Errorf("failed to resolve %s: %w", systemRef, err)
+		return fmt.Errorf("failed to resolve %s: %w", internalRef, err)
 	}
 
 	// 3. Load existing repos from system ref
@@ -102,11 +102,11 @@ func Move(rootAbsPath, repoName, newRelPath string) error {
 		return fmt.Errorf("failed to update metadata: %w", err)
 	}
 
-	// 7. Atomically update gitgroove/system
-	if err := gitUtil.UpdateRef(rootAbsPath, systemRef, newTip, oldTip); err != nil {
+	// 7. Atomically update gitgroove/internal
+	if err := gitUtil.UpdateRef(rootAbsPath, internalRef, newTip, oldTip); err != nil {
 		// Attempt rollback of physical move
 		_ = os.Rename(newAbsPath, oldAbsPath)
-		return fmt.Errorf("failed to update %s (concurrent modification?): %w", systemRef, err)
+		return fmt.Errorf("failed to update %s (concurrent modification?): %w", internalRef, err)
 	}
 
 	log.Info().Msg("Successfully moved repository")

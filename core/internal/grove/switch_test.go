@@ -43,8 +43,8 @@ func TestSwitch(t *testing.T) {
 		t.Fatalf("failed to rename branch to main: %v", err)
 	}
 
-	// Create gitgroove/system branch
-	if err := gitUtil.CreateBranch(tmpDir, "gitgroove/system", "HEAD"); err != nil {
+	// Create gitgroove/internal branch
+	if err := gitUtil.CreateBranch(tmpDir, "gitgroove/internal", "HEAD"); err != nil {
 		t.Fatalf("failed to create system branch: %v", err)
 	}
 
@@ -62,8 +62,8 @@ func TestSwitch(t *testing.T) {
 		t.Fatalf("failed to create frontend dir: %v", err)
 	}
 
-	// Switch to gitgroove/system to register
-	if err := gitUtil.Checkout(tmpDir, "gitgroove/system"); err != nil {
+	// Switch to gitgroove/internal to register
+	if err := gitUtil.Checkout(tmpDir, "gitgroove/internal"); err != nil {
 		t.Fatalf("failed to checkout system branch: %v", err)
 	}
 

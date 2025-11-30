@@ -22,16 +22,16 @@ func CheckoutRepo(rootAbsPath, repoName, branchName string, keepEmptyDirs, flat 
 		return err
 	}
 
-	// 2. Checkout gitgroove/system to load authoritative metadata
-	log.Info().Msg("Checking out gitgroove/system to load metadata")
-	if err := gitUtil.Checkout(rootAbsPath, "gitgroove/system"); err != nil {
-		return fmt.Errorf("failed to checkout gitgroove/system: %w", err)
+	// 2. Checkout gitgroove/internal to load authoritative metadata
+	log.Info().Msg("Checking out gitgroove/internal to load metadata")
+	if err := gitUtil.Checkout(rootAbsPath, "gitgroove/internal"); err != nil {
+		return fmt.Errorf("failed to checkout gitgroove/internal: %w", err)
 	}
 
 	// 3. Load existing repos from the system branch
 	repos, err := loadExistingRepos(rootAbsPath, "HEAD")
 	if err != nil {
-		return fmt.Errorf("failed to load repos from system branch: %w", err)
+		return fmt.Errorf("failed to load repos from internal branch: %w", err)
 	}
 
 	// 4. Find target repo

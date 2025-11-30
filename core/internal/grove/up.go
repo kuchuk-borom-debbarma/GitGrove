@@ -14,7 +14,7 @@ import (
 func Up(rootAbsPath string) error {
 	// Check if we are on system branch
 	currentBranch, err := gitUtil.GetCurrentBranch(rootAbsPath)
-	if err == nil && currentBranch == "gitgroove/system" {
+	if err == nil && currentBranch == "gitgroove/internal" {
 		// Already at System Root.
 		fmt.Println("Already at System Root.")
 		return nil

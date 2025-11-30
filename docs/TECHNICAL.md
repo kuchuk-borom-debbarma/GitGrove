@@ -36,7 +36,7 @@ GitGrove implements a **metadata-driven hierarchical repository system** on top 
               ↕ metadata references
 ┌─────────────────────────────────────────┐
 │      System Branch (Metadata)           │
-│    gitgroove/system                     │
+│    gitgroove/internal                     │
 │    (.gg/repos/*/path, parent, children) │
 └─────────────────────────────────────────┘
 ```
@@ -72,7 +72,7 @@ GitGrove implements a **metadata-driven hierarchical repository system** on top 
 
 ### Metadata Structure
 
-GitGrove stores metadata in `.gg/` directory on the `gitgroove/system` branch:
+GitGrove stores metadata in `.gg/` directory on the `gitgroove/internal` branch:
 
 ```
 .gg/
@@ -107,7 +107,7 @@ GitGrove stores metadata in `.gg/` directory on the `gitgroove/system` branch:
 
 ### System Root View
 
-The `gitgroove/system` branch serves as the "System Root" view. In addition to the `.gg/` metadata directory, it contains:
+The `gitgroove/internal` branch serves as the "System Root" view. In addition to the `.gg/` metadata directory, it contains:
 
 - **Directory Stubs**: Empty directories (with `.gitkeep`) for each registered **root** repository.
 - **Purpose**: Allows users to see and navigate to top-level repositories using standard shell commands (`ls`, `cd`).
@@ -135,7 +135,7 @@ type RepoInfo struct {
 ```
 
 **Loading process:**
-1. Read `gitgroove/system` branch at specific commit
+1. Read `gitgroove/internal` branch at specific commit
 2. List directories in `.gg/repos/`
 3. For each directory (repo):
    - Read `path` file → `Repo.Path`
@@ -169,7 +169,7 @@ backend
 
 **System branch:**
 ```
-gitgroove/system
+gitgroove/internal
 ```
 
 **Repository branches:**
@@ -262,21 +262,21 @@ setRef("refs/heads/gitgroove/repos/backend/branches/main", commitHash)
    - Is git repository?
    - Is working tree clean?
    - Does .gg/ NOT exist?
-   - Does gitgroove/system NOT exist?
+   - Does gitgroove/internal NOT exist?
 
 2. Create directories:
    - .gg/repos/
    - .gg/repos/.gitkeep
 
-3. Create system branch:
-   - git checkout -b gitgroove/system
+3. Create internal branch:
+   - git checkout -b gitgroove/internal
 
 4. Commit metadata:
    - git add .gg
-   - git commit -m "Initialize GitGroove system branch"
+   - git commit -m "Initialize GitGroove internal branch"
 ```
 
-**Result:** User is left on `gitgroove/system` branch.
+**Result:** User is left on `gitgroove/internal` branch.
 
 ---
 
@@ -289,15 +289,15 @@ setRef("refs/heads/gitgroove/repos/backend/branches/main", commitHash)
 1. Validate environment:
    - Is git repository?
    - Is working tree clean?
-   - Not on gitgroove/system (must be on user branch)
+   - Not on gitgroove/internal (must be on user branch)
 
-2. Load existing repos from gitgroove/system
+2. Load existing repos from gitgroove/internal
 
 3. Validate inputs:
    - Names: unique, valid pattern
    - Paths: exist, unique, no .git/, no escaping
 
-4. Create temporary worktree at gitgroove/system tip:
+4. Create temporary worktree at gitgroove/internal tip:
    - git worktree add --detach <temp> <system-ref>
 
 5. In temporary worktree:
@@ -308,10 +308,10 @@ setRef("refs/heads/gitgroove/repos/backend/branches/main", commitHash)
    - git commit -m "Register N repositories"
 
 6. Atomically update system ref:
-   - git update-ref gitgroove/system <new> <old>
+   - git update-ref gitgroove/internal <new> <old>
    - CAS (compare-and-swap) prevents races
 
-7. If currently on gitgroove/system:
+7. If currently on gitgroove/internal:
    - git reset --hard HEAD (sync working tree)
 
 8. Create orphan branches:
@@ -353,7 +353,7 @@ setRef("refs/heads/gitgroove/repos/backend/branches/main", commitHash)
 
 6. Atomically update system ref (CAS)
 
-7. If on gitgroove/system: sync working tree
+7. If on gitgroove/internal: sync working tree
 ```
 
 **Cycle detection:**
@@ -401,11 +401,11 @@ for node in graph:
    - Is git repository?
    - Is working tree clean?
 
-2. Checkout gitgroove/system:
-   - git checkout gitgroove/system
+2. Checkout gitgroove/internal:
+   - git checkout gitgroove/internal
    - This loads fresh metadata
 
-3. Load repos from HEAD (now gitgroove/system)
+3. Load repos from HEAD (now gitgroove/internal)
 
 4. Validate:
    - Repo exists?
@@ -431,7 +431,7 @@ for node in graph:
    - If missing, recreate it (self-healing)
 ```
 
-**Critical:** Always checkout system branch first to ensure metadata is fresh.
+**Critical:** Always checkout internal branch first to ensure metadata is fresh.
 
 ---
 
@@ -450,7 +450,7 @@ for node in graph:
    - Must match: gitgroove/repos/<name>/branches/<branch>
 
 4. Load repo metadata (without checkout):
-   - Read gitgroove/system at tip
+   - Read gitgroove/internal at tip
 
 5. Expand file arguments to changed files:
    - git status --porcelain -u -z
@@ -464,7 +464,7 @@ for node in graph:
    - git add -- <file1> <file2> ...
 ```
 
-**Key insight:** No need to checkout system branch, just read metadata from ref.
+**Key insight:** No need to checkout internal branch, just read metadata from ref.
 
 ---
 
@@ -563,7 +563,7 @@ func VerifyCleanState(path string) error {
 **Mechanism:** Git's `update-ref` with old value (CAS).
 
 ```bash
-git update-ref refs/heads/gitgroove/system <new-hash> <old-hash>
+git update-ref refs/heads/gitgroove/internal <new-hash> <old-hash>
 ```
 
 **Behavior:**
@@ -664,7 +664,7 @@ func NormalizePath(path string) string {
 
 ### Temporary Worktrees
 
-**Purpose:** Manipulate system branch without affecting user's working tree.
+**Purpose:** Manipulate internal branch without affecting user's working tree.
 
 **Creation:**
 ```bash
@@ -737,10 +737,10 @@ git update-ref refs/heads/mybranch $NEW_HASH $OLD_HASH
 
 **GitGrove usage:**
 ```go
-oldTip := resolveRef("gitgroove/system")
+oldTip := resolveRef("gitgroove/internal")
 // ... make changes ...
 newTip := createCommit()
-err := updateRef("gitgroove/system", newTip, oldTip)
+err := updateRef("gitgroove/internal", newTip, oldTip)
 if err != nil {
     // Concurrent modification detected!
 }
@@ -960,7 +960,7 @@ func Register(root, repos) error {
 
 4. **Remote synchronization:**
    - Push/pull repo branches
-   - Sync system branch metadata
+   - Sync internal branch metadata
 
 5. **Performance optimizations:**
    - Metadata caching

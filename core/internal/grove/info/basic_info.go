@@ -11,7 +11,7 @@ type BasicInfo struct {
 	RootPath      string
 	CurrentBranch string
 	IsClean       bool
-	SystemCommit  string
+	InternalCommit  string
 }
 
 func GetBasicInfo(rootAbsPath string) (*BasicInfo, error) {
@@ -29,8 +29,8 @@ func GetBasicInfo(rootAbsPath string) (*BasicInfo, error) {
 		isClean = false
 	}
 
-	systemRef := "refs/heads/gitgroove/system"
-	systemCommit, err := gitUtil.ResolveRef(rootAbsPath, systemRef)
+	internalRef := "refs/heads/gitgroove/internal"
+	systemCommit, err := gitUtil.ResolveRef(rootAbsPath, internalRef)
 	if err != nil {
 		systemCommit = "not initialized"
 	}
@@ -39,6 +39,6 @@ func GetBasicInfo(rootAbsPath string) (*BasicInfo, error) {
 		RootPath:      rootAbsPath,
 		CurrentBranch: strings.TrimSpace(branch), // Changed from 'branch' to 'strings.TrimSpace(branch)' and fixed variable name
 		IsClean:       isClean,
-		SystemCommit:  systemCommit,
+		InternalCommit:  systemCommit,
 	}, nil
 }

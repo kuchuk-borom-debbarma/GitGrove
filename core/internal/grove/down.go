@@ -14,7 +14,7 @@ import (
 func Down(rootAbsPath, childName string) error {
 	// Check if we are on system branch
 	currentBranch, err := gitUtil.GetCurrentBranch(rootAbsPath)
-	if err == nil && currentBranch == "gitgroove/system" {
+	if err == nil && currentBranch == "gitgroove/internal" {
 		// We are at System Root. Allow switching to any root repo.
 		repoInfo, err := info.GetRepoInfo(rootAbsPath)
 		if err != nil {

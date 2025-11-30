@@ -106,7 +106,7 @@ API Gateway
     ↓
 Core Logic: Load Metadata
     ↓
-Git Util: Read refs/heads/gitgroove/system
+Git Util: Read refs/heads/gitgroove/internal
     ↓
 Git Util: Parse .gg/repos/* files
     ↓
@@ -366,7 +366,7 @@ type RepoInfo struct {
 }
 
 func GetRepoInfo(rootAbsPath string) (*RepoInfo, error) {
-    // Load from gitgroove/system
+    // Load from gitgroove/internal
     // Build in-memory representation
     // Check physical state
     return &RepoInfo{...}, nil
@@ -584,7 +584,7 @@ func NormalizePath(path string) string {
 
 ### Metadata Storage Model
 
-**Location:** `.gg/` directory on `gitgroove/system` branch
+**Location:** `.gg/` directory on `gitgroove/internal` branch
 
 **Structure:**
 ```
@@ -728,7 +728,7 @@ func checkNestedRepo(rootAbsPath, fileAbsPath string) error {
 
 **System Branch:**
 ```
-refs/heads/gitgroove/system
+refs/heads/gitgroove/internal
 ```
 
 **Repository Branches:**
@@ -738,7 +738,7 @@ refs/heads/gitgroove/repos/<repo-name>/branches/<branch-name>
 
 **Examples:**
 ```
-refs/heads/gitgroove/system
+refs/heads/gitgroove/internal
 refs/heads/gitgroove/repos/backend/branches/main
 refs/heads/gitgroove/repos/backend/branches/feature-auth
 refs/heads/gitgroove/repos/backend/branches/develop
@@ -843,7 +843,7 @@ If a repository contains other registered repositories (e.g., `root` contains `n
 ```
 main:                  A---B---C---D
                                     \
-gitgroove/system:                    X---Y---Z (metadata history)
+gitgroove/internal:                    X---Y---Z (metadata history)
 
 gitgroove/repos/backend/branches/main:        P---Q---R (backend history)
 gitgroove/repos/frontend/branches/main:           S---T (frontend history)
@@ -866,10 +866,10 @@ Used by: `register`, `link`, `move`
 1. Validate Environment
    ├─ Is Git repo?
    ├─ Is working tree clean?
-   └─ Not on system branch?
+   └─ Not on internal branch?
 
 2. Load Current Metadata
-   ├─ Resolve gitgroove/system ref → OLD_TIP
+   ├─ Resolve gitgroove/internal ref → OLD_TIP
    └─ Parse .gg/repos/* → CURRENT_STATE
 
 3. Validate Inputs
@@ -886,13 +886,13 @@ Used by: `register`, `link`, `move`
    └─ git commit -m "..." → NEW_TIP
 
 6. Atomic Update
-   ├─ git update-ref gitgroove/system NEW_TIP OLD_TIP
+   ├─ git update-ref gitgroove/internal NEW_TIP OLD_TIP
    └─ [Succeeds only if OLD_TIP unchanged]
 
 7. Cleanup
    └─ git worktree remove --force <temp>
 
-8. Sync Working Tree (if on system branch)
+8. Sync Working Tree (if on internal branch)
    └─ git reset --hard HEAD
 ```
 
@@ -911,7 +911,7 @@ func Register(rootAbsPath string, repos map[string]string) error {
     }
     
     // 2. Load current state
-    systemRef := "refs/heads/gitgroove/system"
+    systemRef := "refs/heads/gitgroove/internal"
     oldTip, err := gitUtil.ResolveRef(rootAbsPath, systemRef)
     if err != nil {
         return fmt.Errorf("failed to resolve %s: %w", systemRef, err)
@@ -940,7 +940,7 @@ func Register(rootAbsPath string, repos map[string]string) error {
     
     // 8. Sync if needed
     currentBranch, _ := gitUtil.GetCurrentBranch(rootAbsPath)
-    if currentBranch == "gitgroove/system" {
+    if currentBranch == "gitgroove/internal" {
         gitUtil.ResetHard(rootAbsPath, "HEAD")
     }
     
@@ -961,7 +961,7 @@ Used by: `switch`, `checkout`
    └─ Is working tree clean?
 
 2. Load Fresh Metadata
-   ├─ git checkout gitgroove/system  [CRITICAL STEP]
+   ├─ git checkout gitgroove/internal  [CRITICAL STEP]
    └─ Parse .gg/repos/* from working tree
 
 3. Validate Target
@@ -974,7 +974,7 @@ Used by: `switch`, `checkout`
 5. User Now Sees Flattened View
 ```
 
-**Critical Design Point:** ALWAYS checkout system branch first.
+**Critical Design Point:** ALWAYS checkout internal branch first.
 
 **Rationale:**
 - Metadata on user branches may be stale or absent
@@ -991,9 +991,9 @@ func Switch(rootAbsPath, repoName, branch string) error {
     }
     
     // 2. CRITICAL: Load fresh metadata
-    log.Info().Msg("Checking out gitgroove/system to load metadata")
-    if err := gitUtil.Checkout(rootAbsPath, "gitgroove/system"); err != nil {
-        return fmt.Errorf("failed to checkout gitgroove/system: %w", err)
+    log.Info().Msg("Checking out gitgroove/internal to load metadata")
+    if err := gitUtil.Checkout(rootAbsPath, "gitgroove/internal"); err != nil {
+        return fmt.Errorf("failed to checkout gitgroove/internal: %w", err)
     }
     
     repos, err := loadExistingRepos(rootAbsPath, "HEAD")
@@ -1047,7 +1047,7 @@ Used by: `add`, `commit`
    └─ Parse gitgroove/repos/<N>/branches/<b> → N
 
 3. Load Metadata (No Checkout)
-   ├─ Resolve gitgroove/system → tip
+   ├─ Resolve gitgroove/internal → tip
    └─ Read .gg/repos/* from tip
 
 4. Validate Scope
@@ -1059,7 +1059,7 @@ Used by: `add`, `commit`
    └─ git add / git commit
 ```
 
-**Key Design Point:** No system branch checkout needed for validation.
+**Key Design Point:** No internal branch checkout needed for validation.
 
 
 ### Pattern 3: Scoped Operations with Validation
@@ -1076,7 +1076,7 @@ Used by: `add`, `commit`
    └─ Parse gitgroove/repos/<N>/branches/<b> → N
 
 3. Load Metadata (No Checkout)
-   ├─ Resolve gitgroove/system → tip
+   ├─ Resolve gitgroove/internal → tip
    └─ Read .gg/repos/* from tip
 
 4. Validate Scope
@@ -1088,7 +1088,7 @@ Used by: `add`, `commit`
    └─ git add / git commit
 ```
 
-**Key Design Point:** No system branch checkout needed for validation.
+**Key Design Point:** No internal branch checkout needed for validation.
 
 ---
 
@@ -1101,7 +1101,7 @@ GitGrove is designed to handle multiple users working on the same repository sim
 **Problem:** Two users register different repositories at the same time.
 **Solution:** Optimistic Locking via Git's `update-ref`.
 
-- Both users read `gitgroove/system` at commit `A`.
+- Both users read `gitgroove/internal` at commit `A`.
 - User 1 creates commit `B` (parent `A`) and updates ref `A` -> `B`. Success.
 - User 2 creates commit `C` (parent `A`) and tries to update ref `A` -> `C`.
 - Git rejects the update because current ref is `B`, not `A`.
@@ -1154,7 +1154,7 @@ GitGrove is optimized for large monorepos.
 ### 1. Lazy Loading
 
 - Metadata is only loaded when needed.
-- `gg add` and `gg commit` read metadata directly from the object database without checking out the system branch, making them fast.
+- `gg add` and `gg commit` read metadata directly from the object database without checking out the internal branch, making them fast.
 
 ### 2. Sparse Operations
 

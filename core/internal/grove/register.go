@@ -15,9 +15,9 @@ import (
 
 // Register records one or more repos (name → path) in the GitGroove metadata.
 //
-// It operates atomically against the latest committed state of the gitgroove/system branch.
+// It operates atomically against the latest committed state of the gitgroove/internal branch.
 // Validated entries are appended to .gg/repos/<name>/path, a new commit is created,
-// and the gitgroove/system reference is updated.
+// and the gitgroove/internal reference is updated.
 //
 // Guarantees:
 //   - Atomic: either all repos are registered or none.
@@ -31,11 +31,11 @@ func Register(rootAbsPath string, repos map[string]string) error {
 		return err
 	}
 
-	// 2. Read latest gitgroove/system commit
-	systemRef := "refs/heads/gitgroove/system"
-	oldTip, err := gitUtil.ResolveRef(rootAbsPath, systemRef)
+	// 2. Read latest gitgroove/internal commit
+	internalRef := "refs/heads/gitgroove/internal"
+	oldTip, err := gitUtil.ResolveRef(rootAbsPath, internalRef)
 	if err != nil {
-		return fmt.Errorf("failed to resolve %s (is GitGroove initialized?): %w", systemRef, err)
+		return fmt.Errorf("failed to resolve %s (is GitGrove initialized?): %w", internalRef, err)
 	}
 
 	// 3. Load existing repo metadata
@@ -55,16 +55,16 @@ func Register(rootAbsPath string, repos map[string]string) error {
 		return err
 	}
 
-	// 7. Atomically update gitgroove/system
-	if err := gitUtil.UpdateRef(rootAbsPath, systemRef, newTip, oldTip); err != nil {
-		return fmt.Errorf("failed to update %s (concurrent modification?): %w", systemRef, err)
+	// 7. Atomically update gitgroove/internal
+	if err := gitUtil.UpdateRef(rootAbsPath, internalRef, newTip, oldTip); err != nil {
+		return fmt.Errorf("failed to update %s (concurrent modification?): %w", internalRef, err)
 	}
 
-	// If we are currently on the system branch, we must update the working tree to match the new commit.
+	// If we are currently on the internal branch, we must update the working tree to match the new commit.
 	// Otherwise, the working tree will appear "dirty" (missing the new files we just committed).
 	currentBranch, err := gitUtil.GetCurrentBranch(rootAbsPath)
-	if err == nil && currentBranch == "gitgroove/system" {
-		log.Info().Msg("Updating working tree to match new system state")
+	if err == nil && currentBranch == "gitgroove/internal" {
+		log.Info().Msg("Updating working tree to match new internal state")
 		if err := gitUtil.ResetHard(rootAbsPath, "HEAD"); err != nil {
 			return fmt.Errorf("failed to update working tree: %w", err)
 		}
@@ -176,7 +176,7 @@ func createRegisterCommit(rootAbsPath, oldTip string, repos map[string]string) (
 		}
 
 		// Write marker file in the temp worktree so it gets committed
-		// This ensures that when we are on gitgroove/system, the marker is tracked.
+		// This ensures that when we are on gitgroove/internal, the marker is tracked.
 		// Note: repoDir is .gg/repos/<name>, but the marker should be in the actual repo path?
 		// WAIT. The marker file goes into the ACTUAL repo path, not .gg/repos.
 		// The `createRegisterCommit` function is working in a temp worktree of the ROOT repo.
@@ -210,8 +210,8 @@ func createRegisterCommit(rootAbsPath, oldTip string, repos map[string]string) (
 			return "", fmt.Errorf("failed to write marker in temp worktree %s: %w", markerPath, err)
 		}
 
-		// Create directory stub in the root of the system branch (tempDir)
-		// This makes the repo visible when "ls" is run in the system branch.
+		// Create directory stub in the root of the internal branch (tempDir)
+		// This makes the repo visible when "ls" is run in the internal branch.
 		// We create <repoName>/.gitkeep
 		stubDir := filepath.Join(tempDir, name)
 		if err := os.MkdirAll(stubDir, 0755); err != nil {
