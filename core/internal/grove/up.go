@@ -14,7 +14,7 @@ import (
 func Up(rootAbsPath string) error {
 	// Check if we are on system branch
 	currentBranch, err := gitUtil.GetCurrentBranch(rootAbsPath)
-	if err == nil && currentBranch == "gitgroove/internal" {
+	if err == nil && currentBranch == InternalBranchName {
 		// Already at System Root.
 		fmt.Println("Already at System Root.")
 		return nil
@@ -55,10 +55,8 @@ func Up(rootAbsPath string) error {
 		return fmt.Errorf("parent repo '%s' not found in metadata", parentName)
 	}
 
-	// 3. Switch to parent
-	// We use the default branch for now (main)
-	// TODO: Track last active branch for each repo?
-	branch := "main" // Assuming 'main' is the default branch for now
+	// 3. Switch to parent (using default branch 'main')
+	branch := "main"
 	if err := CheckoutRepo(rootAbsPath, parentRepo.Repo.Name, branch, false, false); err != nil {
 		return fmt.Errorf("failed to switch to parent repo '%s': %w", parentName, err)
 	}

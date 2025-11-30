@@ -20,14 +20,15 @@ type RepoInfo struct {
 }
 
 func GetRepoInfo(rootAbsPath string) (*RepoInfo, error) {
-	internalRef := "refs/heads/gitgroove/internal"
-	oldTip, err := gitUtil.ResolveRef(rootAbsPath, internalRef)
+	// Always load from the internal branch, not from HEAD
+	// Note: Using string literal here to avoid import cycle with grove package
+	internalCommit, err := gitUtil.ResolveRef(rootAbsPath, "refs/heads/gitgroove/internal")
 	if err != nil {
 		// If system branch doesn't exist, we assume no repos registered or not init
 		return &RepoInfo{Repos: map[string]RepoState{}}, nil
 	}
 
-	repos, err := loadRepos(rootAbsPath, oldTip)
+	repos, err := loadRepos(rootAbsPath, internalCommit)
 	if err != nil {
 		return nil, err
 	}

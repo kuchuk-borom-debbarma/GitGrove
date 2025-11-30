@@ -38,10 +38,9 @@ func Move(rootAbsPath, repoName, newRelPath string) error {
 	}
 
 	// 2. Resolve gitgroove/internal ref
-	internalRef := "refs/heads/gitgroove/internal"
-	oldTip, err := gitUtil.ResolveRef(rootAbsPath, internalRef)
+	oldTip, err := gitUtil.ResolveRef(rootAbsPath, InternalBranchRef)
 	if err != nil {
-		return fmt.Errorf("failed to resolve %s: %w", internalRef, err)
+		return fmt.Errorf("failed to resolve %s: %w", InternalBranchRef, err)
 	}
 
 	// 3. Load existing repos from system ref
@@ -95,7 +94,7 @@ func Move(rootAbsPath, repoName, newRelPath string) error {
 	}
 
 	// 6. Update metadata using temp worktree
-	newTip, err := updateRepoPathInSystem(rootAbsPath, oldTip, repoName, newRelPath)
+	newTip, err := updateMetadataForMove(rootAbsPath, oldTip, repoName, newRelPath)
 	if err != nil {
 		// Attempt rollback of physical move
 		_ = os.Rename(newAbsPath, oldAbsPath)
@@ -103,54 +102,34 @@ func Move(rootAbsPath, repoName, newRelPath string) error {
 	}
 
 	// 7. Atomically update gitgroove/internal
-	if err := gitUtil.UpdateRef(rootAbsPath, internalRef, newTip, oldTip); err != nil {
+	if err := gitUtil.UpdateRef(rootAbsPath, InternalBranchRef, newTip, oldTip); err != nil {
 		// Attempt rollback of physical move
 		_ = os.Rename(newAbsPath, oldAbsPath)
-		return fmt.Errorf("failed to update %s (concurrent modification?): %w", internalRef, err)
+		return fmt.Errorf("failed to update %s (concurrent modification?): %w", InternalBranchRef, err)
 	}
 
 	log.Info().Msg("Successfully moved repository")
 	return nil
 }
 
-func updateRepoPathInSystem(rootAbsPath, oldTip, repoName, newPath string) (string, error) {
-	tempDir, err := os.MkdirTemp("", "gitgroove-move-*")
+func updateMetadataForMove(rootAbsPath, oldTip, repoName, newPath string) (string, error) {
+	// Build file updates for metadata
+	updates := make(map[string]string)
+
+	// Update the path file
+	pathFile := fmt.Sprintf(".gg/repos/%s/path", repoName)
+	updates[pathFile] = newPath
+
+	// Create commit with changes using plumbing API
+	message := fmt.Sprintf("Move repository '%s' to '%s'", repoName, newPath)
+	newTip, err := gitUtil.CreateMetadataCommit(rootAbsPath, oldTip, message, updates, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to create temp dir: %w", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	if err := gitUtil.WorktreeAddDetached(rootAbsPath, tempDir, oldTip); err != nil {
-		return "", fmt.Errorf("failed to create temporary worktree: %w", err)
-	}
-	defer gitUtil.WorktreeRemove(rootAbsPath, tempDir)
-
-	// Update path file
-	pathFile := filepath.Join(tempDir, ".gg", "repos", repoName, "path")
-	if err := os.MkdirAll(filepath.Dir(pathFile), 0755); err != nil {
-		return "", fmt.Errorf("failed to create repo metadata dir: %w", err)
-	}
-	if err := os.WriteFile(pathFile, []byte(newPath), 0644); err != nil {
-		return "", fmt.Errorf("failed to write new path: %w", err)
+		return "", fmt.Errorf("failed to create metadata commit: %w", err)
 	}
 
-	// Commit
-	if err := gitUtil.StagePath(tempDir, ".gg/repos"); err != nil {
-		return "", fmt.Errorf("failed to stage metadata: %w", err)
-	}
-	if err := gitUtil.Commit(tempDir, fmt.Sprintf("Move repo '%s' to '%s'", repoName, newPath)); err != nil {
-		return "", fmt.Errorf("failed to commit move: %w", err)
-	}
-
-	return gitUtil.GetHeadCommit(tempDir)
+	return newTip, nil
 }
 
 func validateMoveEnvironment(rootAbsPath string) error {
-	if !gitUtil.IsInsideGitRepo(rootAbsPath) {
-		return fmt.Errorf("not a git repository: %s", rootAbsPath)
-	}
-	if err := gitUtil.VerifyCleanState(rootAbsPath); err != nil {
-		return fmt.Errorf("working tree is not clean: %w", err)
-	}
-	return nil
+	return validateCleanGitRepo(rootAbsPath)
 }

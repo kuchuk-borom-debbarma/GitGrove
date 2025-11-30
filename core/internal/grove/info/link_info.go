@@ -60,6 +60,25 @@ func sortNodes(nodes []*TreeNode) {
 	})
 }
 
+// FindNode finds a node by repository name in the hierarchy.
+// Returns nil if not found.
+func (li *LinkInfo) FindNode(repoName string) *TreeNode {
+	// Build a flat map for quick lookup
+	var findInNodes func([]*TreeNode) *TreeNode
+	findInNodes = func(nodes []*TreeNode) *TreeNode {
+		for _, node := range nodes {
+			if node.State.Repo.Name == repoName {
+				return node
+			}
+			if found := findInNodes(node.Children); found != nil {
+				return found
+			}
+		}
+		return nil
+	}
+	return findInNodes(li.Roots)
+}
+
 // String returns a beautiful tree representation of the hierarchy
 func (ld *LinkInfo) String(currentRepo string) string {
 	var sb strings.Builder

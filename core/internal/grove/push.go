@@ -45,7 +45,7 @@ func Push(rootAbsPath string, targets []string) error {
 
 	// 3. Load metadata
 	// We need to be on gitgroove/internal to read authoritative metadata
-	if err := gitUtil.Checkout(rootAbsPath, "gitgroove/internal"); err != nil {
+	if err := gitUtil.Checkout(rootAbsPath, InternalBranchName); err != nil {
 		return fmt.Errorf("failed to checkout gitgroove/internal: %w", err)
 	}
 

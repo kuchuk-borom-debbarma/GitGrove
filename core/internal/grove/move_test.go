@@ -27,18 +27,19 @@ func TestMove(t *testing.T) {
 
 	execGit(t, temp, "checkout", defaultBranch)
 
-	// Register repo
-	os.MkdirAll(filepath.Join(temp, "backend"), 0755)
-	repos := map[string]string{
-		"backend": "backend",
+	// Create physical directories
+	backendDir := filepath.Join(temp, "services/backend")
+	if err := os.MkdirAll(backendDir, 0755); err != nil {
+		t.Fatal(err)
 	}
-	if err := grove.Register(temp, repos); err != nil {
+
+	// Register repo
+	if err := grove.Register(temp, map[string]string{"backend": "services/backend"}); err != nil {
 		t.Fatalf("Register failed: %v", err)
 	}
 
-	// Commit markers
-	execGit(t, temp, "add", ".")
-	execGit(t, temp, "commit", "-m", "Add markers")
+	// Note: Markers are now automatically tracked in git via plumbing API
+	// No need to manually commit them
 
 	// Move backend to services/backend
 	newPath := "services/backend"

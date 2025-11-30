@@ -254,6 +254,107 @@ func CommitTree(repoPath, treeHash, message string, parents ...string) (string, 
 	return runGit(repoPath, args...)
 }
 
+// GetTreeHash returns the tree hash of a commit.
+// This is an alias for GetCommitTree for better API clarity.
+func GetTreeHash(repoPath, commitHash string) (string, error) {
+	return GetCommitTree(repoPath, commitHash)
+}
+
+// TreeEntry represents a single entry in a git tree.
+type TreeEntry struct {
+	Mode string // e.g., "100644", "040000"
+	Type string // "blob" or "tree"
+	Hash string // object hash
+	Path string // file/directory name
+}
+
+// UpdateTreeWithChanges creates a new tree by applying file changes and deletions to a base tree.
+// This is the core function that replaces the worktree pattern.
+//
+// Parameters:
+//   - baseTreeHash: The tree to use as a base (can be empty string for new tree)
+//   - updates: Map of path -> content for files to add/update
+//   - deletions: List of paths to delete
+//
+// Returns: The new tree hash
+func UpdateTreeWithChanges(repoPath, baseTreeHash string, updates map[string]string, deletions []string) (string, error) {
+	// Use a temporary index to build the new tree
+	tempIndex := filepath.Join(repoPath, ".git", "index.temp."+fileUtil.RandomString(8))
+	defer os.Remove(tempIndex)
+
+	env := append(os.Environ(), "GIT_INDEX_FILE="+tempIndex)
+
+	runGitEnv := func(args ...string) (string, error) {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = repoPath
+		cmd.Env = env
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return string(out), err
+		}
+		return strings.TrimSpace(string(out)), nil
+	}
+
+	// 1. Read base tree into temp index (if provided)
+	if baseTreeHash != "" {
+		if _, err := runGitEnv("read-tree", baseTreeHash); err != nil {
+			return "", fmt.Errorf("failed to read base tree: %w", err)
+		}
+	}
+
+	// 2. Apply deletions
+	for _, path := range deletions {
+		// Remove from index (ignore errors if file doesn't exist)
+		_, _ = runGitEnv("update-index", "--remove", path)
+	}
+
+	// 3. Apply updates
+	for path, content := range updates {
+		// Create blob
+		blobHash, err := CreateBlob(repoPath, content)
+		if err != nil {
+			return "", fmt.Errorf("failed to create blob for %s: %w", path, err)
+		}
+
+		// Add to index
+		if _, err := runGitEnv("update-index", "--add", "--cacheinfo", "100644", blobHash, path); err != nil {
+			return "", fmt.Errorf("failed to update index for %s: %w", path, err)
+		}
+	}
+
+	// 4. Write tree
+	newTreeHash, err := runGitEnv("write-tree")
+	if err != nil {
+		return "", fmt.Errorf("failed to write tree: %w", err)
+	}
+
+	return newTreeHash, nil
+}
+
+// CreateMetadataCommit is a high-level helper that creates a commit with file changes.
+// This replaces the worktree pattern for metadata operations.
+func CreateMetadataCommit(repoPath, baseCommit, message string, updates map[string]string, deletions []string) (string, error) {
+	// 1. Get base tree
+	baseTree, err := GetTreeHash(repoPath, baseCommit)
+	if err != nil {
+		return "", fmt.Errorf("failed to get base tree: %w", err)
+	}
+
+	// 2. Create new tree with changes
+	newTree, err := UpdateTreeWithChanges(repoPath, baseTree, updates, deletions)
+	if err != nil {
+		return "", fmt.Errorf("failed to create new tree: %w", err)
+	}
+
+	// 3. Create commit
+	newCommit, err := CommitTree(repoPath, newTree, message, baseCommit)
+	if err != nil {
+		return "", fmt.Errorf("failed to create commit: %w", err)
+	}
+
+	return newCommit, nil
+}
+
 // GetEmptyTreeHash returns the hash of an empty tree.
 func GetEmptyTreeHash(repoPath string) (string, error) {
 	// The empty tree hash is a constant in git: 4b825dc642cb6eb9a060e54bf8d69288fbee4904
