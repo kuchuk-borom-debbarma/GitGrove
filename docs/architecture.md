@@ -790,12 +790,16 @@ refs/heads/
     ├── .gitgroverepo
     ├── main.go
     ├── utils/
+```
     │   └── helper.go
     └── config/
         └── app.yaml
 ```
 
-**Key Difference:** Repository branches show ONLY that repository's content at root level, not the full project structure.
+**Key Difference:** The repository's contents appear at the root level, isolating you from other parts of the project.
+
+**Nested Repository Hiding:**
+If a repository contains other registered repositories (e.g., `root` contains `nested`), GitGrove automatically hides the nested repository directories using `git sparse-checkout`. This ensures that "flattened" means truly isolated, preventing accidental modification of nested repository files from the parent context. This behavior can be disabled with the `--flat` flag.
 
 ### Branch Creation Process
 

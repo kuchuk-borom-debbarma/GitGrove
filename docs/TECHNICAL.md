@@ -406,8 +406,19 @@ for node in graph:
 
 6. Working tree now shows flattened view
 
-7. Clean up empty directories (unless requested otherwise)
+7. Configure sparse-checkout:
+   - Identify nested registered repositories
+   - If any found (and --flat not used):
+     - git sparse-checkout set --no-cone "/*" "!nested/repo/"
+   - Else:
+     - git sparse-checkout disable
+
+8. Clean up empty directories (unless requested otherwise)
    - Recursively remove empty directories to keep workspace clean
+
+9. Ensure marker existence:
+   - Check if .gitgroverepo exists
+   - If missing, recreate it (self-healing)
 ```
 
 **Critical:** Always checkout system branch first to ensure metadata is fresh.
