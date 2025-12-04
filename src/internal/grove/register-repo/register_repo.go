@@ -1,5 +1,15 @@
 package registerrepo
 
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+
+	gitUtil "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/util/git"
+	groveUtil "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/util/grove"
+	"github.com/kuchuk-borom-debbarma/GitGrove/src/model"
+)
+
 // RegisterRepo registers a folder as a "repo" within the GitGrove monorepo.
 //
 // Concept: The Split
@@ -15,6 +25,31 @@ package registerrepo
 // Limitation: Nested Repositories
 // Nested directories cannot be registered as repositories at this time.
 // Rules for this are yet to be clearly defined.
-func RegisterRepo(repoName, path string) error {
+func RegisterRepo(repos []model.GGRepo, ggRepoPath string) error {
+	// Validate ggRepoPath (has .gg/gg.json and is git repo too)
+	if err := gitUtil.IsGitRepository(ggRepoPath); err != nil {
+		return err
+	}
+
+	// Check if Grove is initialized
+	configPath := filepath.Join(ggRepoPath, ".gg", "gg.json")
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return fmt.Errorf("gitgrove is not initialized in %s", ggRepoPath)
+	}
+
+	// Load repos from gg.json and check if there is any name or path conflict
+	// Update gg.json
+	if err := groveUtil.RegisterRepoInConfig(ggRepoPath, repos); err != nil {
+		return err
+	}
+
+	// If all good, proceed creating the orphan branch
+	for _, repo := range repos {
+		branchName := fmt.Sprintf("gg/%s", repo.Name)
+		if err := gitUtil.SubtreeSplit(ggRepoPath, repo.Path, branchName); err != nil {
+			return fmt.Errorf("failed to create subtree split for %s: %w", repo.Name, err)
+		}
+	}
+
 	return nil
 }

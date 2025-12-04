@@ -42,3 +42,13 @@ func Commit(repoPath string, files []string, message string) error {
 
 	return nil
 }
+
+// SubtreeSplit creates a new branch using git subtree split.
+func SubtreeSplit(repoPath string, prefix string, branchName string) error {
+	cmd := exec.Command("git", "subtree", "split", "--prefix="+prefix, "-b", branchName)
+	cmd.Dir = repoPath
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git subtree split failed: %s: %w", string(output), err)
+	}
+	return nil
+}
