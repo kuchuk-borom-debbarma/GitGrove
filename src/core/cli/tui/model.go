@@ -6,8 +6,50 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/kuchuk-borom-debbarma/GitGrove/core/core/internal/grove"
 	groveUtil "github.com/kuchuk-borom-debbarma/GitGrove/core/core/internal/util/grove"
+)
+
+// Styles
+var (
+	appStyle = lipgloss.NewStyle().Margin(1, 2)
+
+	titleStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FFFDF5")).
+			Background(lipgloss.Color("#25A065")).
+			Padding(0, 1).
+			Bold(true)
+
+	titleBorderStyle = lipgloss.NewStyle().
+				BorderStyle(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("62")).
+				Padding(1, 2).
+				MarginBottom(1)
+
+	itemStyle = lipgloss.NewStyle().
+			PaddingLeft(2)
+
+	selectedItemStyle = lipgloss.NewStyle().
+				PaddingLeft(0).
+				Foreground(lipgloss.Color("170")).
+				Bold(true)
+
+	inputStyle = lipgloss.NewStyle().
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color("63")).
+			Padding(0, 1)
+
+	errorStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FF0000")).
+			Bold(true)
+
+	successStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#00FF00")).
+			Bold(true)
+
+	infoStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("241"))
 )
 
 type Model struct {
@@ -119,15 +161,20 @@ func (m Model) View() string {
 		return "Bye!\n"
 	}
 
-	s := ""
+	var s string
+
+	// Header
+	header := titleBorderStyle.Render(
+		titleStyle.Render("GitGrove"),
+	)
 
 	if !m.isGroveRepo {
 		if m.inputtingPath {
 			s += "Enter path to initialize GitGrove:\n\n"
-			s += m.textInput.View()
-			s += "\n\n(esc to cancel, enter to confirm)\n"
+			s += inputStyle.Render(m.textInput.View())
+			s += "\n\n" + infoStyle.Render("(esc to cancel, enter to confirm)") + "\n"
 			if m.err != nil {
-				s += fmt.Sprintf("\nError: %v\n", m.err)
+				s += "\n" + errorStyle.Render(fmt.Sprintf("Error: %v", m.err)) + "\n"
 			}
 		} else {
 			s += "Not a GitGrove Repository.\n\n"
@@ -136,20 +183,22 @@ func (m Model) View() string {
 				cursor := " "
 				if m.cursor == i {
 					cursor = ">"
+					s += selectedItemStyle.Render(fmt.Sprintf("%s %s", cursor, choice)) + "\n"
+				} else {
+					s += itemStyle.Render(fmt.Sprintf("%s %s", cursor, choice)) + "\n"
 				}
-				s += fmt.Sprintf("%s %s\n", cursor, choice)
 			}
 
 			if m.err != nil {
-				s += fmt.Sprintf("\nError: %v\n", m.err)
+				s += "\n" + errorStyle.Render(fmt.Sprintf("Error: %v", m.err)) + "\n"
 			}
 		}
 	} else {
-		s += "Welcome to GitGrove!\n"
+		s += successStyle.Render("Welcome to GitGrove!") + "\n\n"
 		s += "Current Repository Info:\n"
 		s += "  Path: " + m.repoInfo + "\n" // Placeholder
-		s += "\nPress 'q' to quit.\n"
+		s += "\n" + infoStyle.Render("Press 'q' to quit.") + "\n"
 	}
 
-	return s
+	return appStyle.Render(header + "\n" + s)
 }
