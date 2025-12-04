@@ -1,4 +1,4 @@
-module github.com/kuchuk-borom-debbarma/GitGrove/core
+module github.com/kuchuk-borom-debbarma/GitGrove/src
 
 go 1.25.4
 
