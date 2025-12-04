@@ -17,6 +17,9 @@ When a folder is registered as a "repo," GG creates a parallel history for it.
         ○ Root Projection: Inside this new branch, the files are moved to the Root Directory.
             § Trunk View: ./backend/services/serviceA/main.go
             § Orphan View: ./main.go
+    3. Limitation: Nested Repositories
+    Nested directories cannot be registered as repositories at this time.
+    Rules for this are yet to be clearly defined.
 3. The Development Loop (Independent Tracking)
 Developers work inside these isolated orphan branches. This provides the "Per-Repo Commit Tracking" feature.
     • Command: gg checkout serviceA

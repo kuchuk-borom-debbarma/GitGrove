@@ -134,13 +134,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "enter":
 			if !m.isGroveRepo {
-				if m.choices[m.cursor] == "Init GitGrove" {
+				switch m.choices[m.cursor] {
+				case "Init GitGrove":
 					m.inputtingPath = true
 					// Update default value to current CWD just in case it changed or wasn't set right
 					cwd, _ := os.Getwd()
 					m.textInput.SetValue(cwd)
 					return m, nil
-				} else if m.choices[m.cursor] == "Quit" {
+				case "Quit":
 					m.quitting = true
 					return m, tea.Quit
 				}
