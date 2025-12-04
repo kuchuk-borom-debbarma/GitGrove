@@ -1,6 +1,10 @@
 package initialize
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
+
 	gitUtil "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/util/git"
 	groveUtil "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/util/grove"
 )
@@ -33,10 +37,32 @@ func Initialize(path string) error {
 	if err := groveUtil.CreateGroveConfig(path); err != nil {
 		return err
 	}
+
+	// Install pre-commit hook
+	if err := installPreCommitHook(path); err != nil {
+		return err
+	}
+
 	//Commit this configuration to the current branch
 	if err := gitUtil.Commit(path, []string{".gg/gg.json"}, "Initialize GitGrove"); err != nil {
 		return err
 	}
 
+	return nil
+}
+
+func installPreCommitHook(path string) error {
+	hookPath := filepath.Join(path, ".git", "hooks", "pre-commit")
+	content := `#!/bin/sh
+# GitGrove Pre-commit Hook
+if command -v git-grove >/dev/null 2>&1; then
+    git-grove hook pre-commit
+else
+    echo "Warning: git-grove not found, skipping context checks."
+fi
+`
+	if err := os.WriteFile(hookPath, []byte(content), 0755); err != nil {
+		return fmt.Errorf("failed to create pre-commit hook: %w", err)
+	}
 	return nil
 }

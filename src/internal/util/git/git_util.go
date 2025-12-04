@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // IsGitRepository checks if the given path is a valid git repository.
@@ -51,4 +52,23 @@ func SubtreeSplit(repoPath string, prefix string, branchName string) error {
 		return fmt.Errorf("git subtree split failed: %s: %w", string(output), err)
 	}
 	return nil
+}
+
+// GetStagedFiles returns a list of files that are currently staged for commit.
+func GetStagedFiles(repoPath string) ([]string, error) {
+	cmd := exec.Command("git", "diff", "--cached", "--name-only")
+	cmd.Dir = repoPath
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("git diff failed: %s: %w", string(output), err)
+	}
+
+	files := []string{}
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if strings.TrimSpace(line) != "" {
+			files = append(files, strings.TrimSpace(line))
+		}
+	}
+	return files, nil
 }

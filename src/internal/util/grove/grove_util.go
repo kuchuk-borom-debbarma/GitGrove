@@ -42,24 +42,35 @@ type GGConfig struct {
 	Repositories map[string]model.GGRepo `json:"repositories"`
 }
 
+// LoadConfig reads the gg.json configuration from the .gg directory.
+func LoadConfig(ggRootPath string) (*GGConfig, error) {
+	configPath := filepath.Join(ggRootPath, ".gg", "gg.json")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read gg.json: %w", err)
+	}
+
+	var config GGConfig
+	if err := json.Unmarshal(data, &config); err != nil {
+		return nil, fmt.Errorf("failed to parse gg.json: %w", err)
+	}
+
+	if config.Repositories == nil {
+		config.Repositories = make(map[string]model.GGRepo)
+	}
+
+	return &config, nil
+}
+
 // RegisterRepoInConfig adds new repositories to the gg.json configuration.
 // It performs validation to ensure no name/path conflicts or nested repositories.
 func RegisterRepoInConfig(ggRootPath string, newRepos []model.GGRepo) error {
 	configPath := filepath.Join(ggRootPath, ".gg", "gg.json")
 
 	// Read existing config
-	data, err := os.ReadFile(configPath)
+	config, err := LoadConfig(ggRootPath)
 	if err != nil {
-		return fmt.Errorf("failed to read gg.json: %w", err)
-	}
-
-	var config GGConfig
-	if err := json.Unmarshal(data, &config); err != nil {
-		return fmt.Errorf("failed to parse gg.json: %w", err)
-	}
-
-	if config.Repositories == nil {
-		config.Repositories = make(map[string]model.GGRepo)
+		return err
 	}
 
 	// Validate and add new repos
