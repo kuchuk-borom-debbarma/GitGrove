@@ -1,4 +1,4 @@
-package grove
+package initialize
 
 import (
 	gitUtil "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/util/git"

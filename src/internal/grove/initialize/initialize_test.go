@@ -1,4 +1,4 @@
-package grove_test
+package initialize_test
 
 import (
 	"os"
@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/kuchuk-borom-debbarma/GitGrove/src/internal/grove"
+	"github.com/kuchuk-borom-debbarma/GitGrove/src/internal/grove/initialize"
 )
 
 func TestInitialize(t *testing.T) {
@@ -33,7 +33,7 @@ func TestInitialize(t *testing.T) {
 	cmd.Run()
 
 	// Run Initialize
-	if err := grove.Initialize(tempDir); err != nil {
+	if err := initialize.Initialize(tempDir); err != nil {
 		t.Fatalf("Initialize failed: %v", err)
 	}
 
