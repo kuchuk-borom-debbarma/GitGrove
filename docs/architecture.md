@@ -52,7 +52,7 @@ The enforcement layer.
 #### `PrepareCommitMsg`
 - **Trigger**: `git commit` (before message editing)
 - **Logic**:
-  1. If `AtomicCommit` is enabled in config:
+  1. If `RepoAwareContextMessage` is enabled in config:
   2. Checks staged files.
   3. If all files belong to a single registered repo (e.g., `serviceA`), prepends `[serviceA]` to the commit message.
 
@@ -71,7 +71,7 @@ Located at `.gg/gg.json`.
 ```json
 {
   "version": "1.0",
-  "atomic_commit": true,
+  "repo_aware_context_message": true,
   "repositories": [
     {
       "name": "serviceA",

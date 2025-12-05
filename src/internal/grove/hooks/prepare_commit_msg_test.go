@@ -28,7 +28,7 @@ func TestPrepareCommitMsg(t *testing.T) {
 	exec.Command("git", "config", "user.email", "you@example.com").Run()
 	exec.Command("git", "config", "user.name", "Your Name").Run()
 
-	// Init Grove Config with AtomicCommit = true
+	// Init Grove Config with RepoAwareContextMessage = true
 	repoA := "services/repoA"
 	// Init Grove Config with AtomicCommit = true
 	// config declaration removed as it was unused and we write manually
@@ -47,7 +47,7 @@ func TestPrepareCommitMsg(t *testing.T) {
 	// grove_util.go doesn't export the struct if I didn't verify?
 	// It is exported: type GGConfig struct
 	// Writing manually.
-	importJSON := `{"repositories": {"repoA": {"name": "repoA", "path": "services/repoA"}}, "atomic_commit": true}`
+	importJSON := `{"repositories": {"repoA": {"name": "repoA", "path": "services/repoA"}}, "repo_aware_context_message": true}`
 	os.WriteFile(filepath.Join(tmpDir, ".gg", "gg.json"), []byte(importJSON), 0644)
 
 	// Commit gg.json first so it doesn't interfere with "atomic" check for repoA
@@ -87,7 +87,7 @@ func TestPrepareCommitMsg(t *testing.T) {
 
 	// Case 3: Atomic Commit Disabled -> No prepend
 	// Update config
-	importJSON = `{"repositories": {"repoA": {"name": "repoA", "path": "services/repoA"}}, "atomic_commit": false}`
+	importJSON = `{"repositories": {"repoA": {"name": "repoA", "path": "services/repoA"}}, "repo_aware_context_message": false}`
 	os.WriteFile(filepath.Join(tmpDir, ".gg", "gg.json"), []byte(importJSON), 0644)
 	// Commit config change
 	exec.Command("git", "add", ".").Run()

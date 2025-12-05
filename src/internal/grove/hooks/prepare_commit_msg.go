@@ -48,7 +48,7 @@ func PrepareCommitMsg(msgFile, source, sha string) error {
 
 	// fmt.Printf("Debug: Config loaded. AtomicCommit: %v\n", config.AtomicCommit)
 
-	if !config.AtomicCommit {
+	if !config.RepoAwareContextMessage {
 		return nil
 	}
 

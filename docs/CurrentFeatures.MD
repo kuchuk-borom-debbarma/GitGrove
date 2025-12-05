@@ -49,7 +49,7 @@ A text-based interface for interacting with GitGrove.
 
 ---
 
-## 5. Context-Aware Commit (Auto-Tagging) [Implemented]
+## 5. Context Aware Commit Message (Auto-Tagging) [Implemented]
 
 Automatically tags commit messages to maintain a clean history without manual effort.
 
@@ -58,7 +58,7 @@ Automatically tags commit messages to maintain a clean history without manual ef
     *   **Trigger**: Fires when a commit is created.
     *   **Condition**: If all staged files belong to a *single* registered repository (e.g., `serviceA`).
     *   **Action**: Automatically prepends `[serviceA]` to the commit message.
-    *   **Configuration**: Can be enabled/disabled via `atomic_commit` flag in `gg.json`.
+    *   **Configuration**: Can be enabled/disabled via `repo_aware_context_message` flag in `gg.json`.
 
 ---
 
