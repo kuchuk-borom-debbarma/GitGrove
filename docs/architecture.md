@@ -56,6 +56,15 @@ The enforcement layer.
   2. Checks staged files.
   3. If all files belong to a single registered repo (e.g., `serviceA`), prepends `[serviceA]` to the commit message.
 
+### `grove/sync`
+Handles merging orphan branches back to trunk.
+- **Entry**: `Sync(targetArg string, squash bool, commit bool)`
+- **Logic**:
+  1. Determines context (Trunk vs Orphan).
+  2. If Orphan: auto-switches to Trunk.
+  3. Executes `git subtree merge` (or `git merge -Xsubtree` if no-squash/no-commit).
+  4. Defaults to **Squash** and **No Commit** (Stage only) for safety.
+
 ### `tui`
 The Terminal User Interface (BubbleTea).
 - **Entry**: `InitialModel()`
