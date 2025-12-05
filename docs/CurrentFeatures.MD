@@ -60,6 +60,19 @@ Automatically tags commit messages to maintain a clean history without manual ef
     *   **Action**: Automatically prepends `[serviceA]` to the commit message.
     *   **Configuration**: Can be enabled/disabled via `repo_aware_context_message` flag in `gg.json`.
 
+## 5. Integration (Prepare for Merge)
+Prepares work from an isolated branch for integration into the trunk.
+
+*   **Command**: `gg prepare-merge [repoName]`
+*   **Logic**:
+    *   **Context Aware**: Can be run from the trunk (with arguments) or directly from an orphan branch (auto-detected).
+    *   **Workflow**:
+        1.  Switches to `main`.
+        2.  Creates a temporary integration branch: `gg/merge-prep/<repoName>/<timestamp>`.
+        3.  Merges the orphan branch changes into this new branch, restoring the nested file structure.
+        4.  Resolves disjoint history conflicts automatically.
+    *   **Result**: A clean branch ready for Pull Request into `main`.
+
 ---
 
 ## Features In Progress / Planned
@@ -67,7 +80,6 @@ Automatically tags commit messages to maintain a clean history without manual ef
 The following features are designed but not yet fully implemented:
 
 *   **Development Loop (`gg checkout`)**: Commands to easily switch between the Trunk and Orphan branches are not yet implemented.
-*   **Integration (`gg sync`)**: Logic to merge changes from Orphan branches back into the Trunk (using subtree merge) is pending.
 *   **TUI Enhancements**:
     *   "Register Repo" option (Logic exists in `register-repo` module, needs TUI wiring).
     *   Dashboard for viewing registered repositories.

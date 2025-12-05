@@ -18,6 +18,11 @@ For every registered component (e.g., `backend/serviceA`), GitGrove maintains a 
 ### 3. The Guard (Hooks)
 Automated checks to enforce the "Atomic Commit" and "Context Isolation" principles.
 
+### 4. The Merge (Re-Integration)
+Mechanism to bring changes from an isolated orphan branch back into the trunk without losing context or directory structure.
+- **Role**: Safe integration.
+- **Workflow**: `Orphan Branch` -> `Prepare Merge Branch` (Merge Prep) -> `Pull Request` -> `Trunk`.
+
 ---
 
 ## Internal Modules (`src/internal`)
@@ -38,6 +43,15 @@ Manages the registration of sub-projects.
   1. Validates no path conflicts or nesting.
   2. Updates `gg.json`.
   3. Executes `git subtree split` to create the initial orphan branch.
+
+### `grove/prepare-merge`
+Automates the creation of a merge-ready branch from an orphan branch.
+- **Entry**: `PrepareMerge(ggRepoPath string, repoNameArg string)`
+- **Key Actions**:
+  1. Detects context (Orphan vs Trunk).
+  2. Switches to Trunk (`main`).
+  3. Creates `gg/merge-prep/<repoName>/<timestamp>` branch.
+  4. Merges orphan branch using `git merge -s subtree --allow-unrelated-histories`.
 
 ### `grove/hooks`
 The enforcement layer.
@@ -62,7 +76,9 @@ The Terminal User Interface (BubbleTea).
 - **States**:
   - `Startup`: Checks if CWD is a GG repo.
   - `Init`: Prompts for path and Atomic Commit preference.
-  - `Dashboard`: Shows current repo info (Placeholder).
+  - `ActionSelection`: Main menu for initialized repos (Register, Prepare Merge).
+  - `RepoSelection`: List of repos to select for `prepare-merge`.
+  - `Dashboard`: Shows current repo info.
 
 ## Data Structure: `gg.json`
 

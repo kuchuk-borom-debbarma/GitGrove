@@ -33,16 +33,16 @@ To ensure the Monorepo history remains compatible with the Orphan history, GG en
     • Logic:
         ○ If a user is on main and attempts to manually modify files inside a registered path (e.g., ./backend/services/serviceA), GG blocks the commit.
     • Why? This forces users to make changes in the Orphan branch first. This ensures we never have "Ghost Changes" in Main that the Orphan branch doesn't know about, making merging easy and conflict-free.
-5. Integration (The Sync)
-When the work in the isolated branch is complete, it is merged back into the Trunk.
-    • Command: gg sync main
-    • Mechanism: GG uses the Subtree Merge Strategy.
-        ○ It takes the root-level files from the orphan.
-        ○ It shifts them back down to their target directory (./backend/services/serviceA).
-        ○ It merges them into main.
-    • Merge Options:
-        ○ Standard Merge: Preserves every individual commit from the orphan branch in the main history.
-        ○ Squash: Compresses the orphan work into a single commit on Main ("Update ServiceA features"), keeping the trunk clean while the orphan retains the detailed history.
+5. Integration (Prepare for Merge)
+When the work in the isolated branch is ready to be integrated, we prepare a branch for merging into the trunk.
+    • Command: gg prepare-merge
+    • Goal: Create a bridge between the isolated orphan branch and the main trunk.
+    • Action:
+        ○ Creates a new branch off the trunk.
+        ○ Brings in the changes from the registered repository's orphaned branch.
+        ○ Applies path translation to ensure files land in their correct nested location (e.g., ./main.go -> ./backend/services/serviceA/main.go).
+    • Result: A standard feature branch that contains the updates.
+    • Next Step: The user can now merge this branch into the trunk using standard Git workflows (Pull Request or manual merge).
 
 Summary of Benefits
     1. True Isolation: Developers work with root-level files, ignoring the complexity of the massive Monorepo folder structure.

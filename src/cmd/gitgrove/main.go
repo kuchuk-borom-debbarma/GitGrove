@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/kuchuk-borom-debbarma/GitGrove/src/internal/grove/hooks"
 	"github.com/kuchuk-borom-debbarma/GitGrove/src/internal/grove/initialize"
+	preparemerge "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/grove/prepare-merge"
 	"github.com/kuchuk-borom-debbarma/GitGrove/src/internal/tui"
 )
 
@@ -62,6 +63,17 @@ func main() {
 				os.Exit(1)
 			}
 			fmt.Println("GitGrove initialized successfully!")
+			os.Exit(0)
+		case "prepare-merge":
+			cwd, _ := os.Getwd()
+			repoName := ""
+			if len(os.Args) > 2 {
+				repoName = os.Args[2]
+			}
+			if err := preparemerge.PrepareMerge(cwd, repoName); err != nil {
+				fmt.Fprintf(os.Stderr, "Error preparing merge: %v\n", err)
+				os.Exit(1)
+			}
 			os.Exit(0)
 		}
 	}
