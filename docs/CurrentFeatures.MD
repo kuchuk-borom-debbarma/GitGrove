@@ -49,11 +49,26 @@ A text-based interface for interacting with GitGrove.
 
 ---
 
+## 5. Context-Aware Commit (Auto-Tagging) [Implemented]
+
+Automatically tags commit messages to maintain a clean history without manual effort.
+
+*   **Mechanism**: `prepare-commit-msg` Hook
+*   **Logic**:
+    *   **Trigger**: Fires when a commit is created.
+    *   **Condition**: If all staged files belong to a *single* registered repository (e.g., `serviceA`).
+    *   **Action**: Automatically prepends `[serviceA]` to the commit message.
+    *   **Configuration**: Can be enabled/disabled via `atomic_commit` flag in `gg.json`.
+
+---
+
 ## Features In Progress / Planned
 
 The following features are designed but not yet fully implemented:
 
-*   **Context-Aware Commit (Auto-Tagging)**: Logic to automatically tag commit messages with the repository name (e.g., `[serviceA] Fix bug`) is planned but not yet active. Currently, the hook only *enforces* boundaries.
 *   **Development Loop (`gg checkout`)**: Commands to easily switch between the Trunk and Orphan branches are not yet implemented.
 *   **Integration (`gg sync`)**: Logic to merge changes from Orphan branches back into the Trunk (using subtree merge) is pending.
-*   **TUI Enhancements**: Adding "Register Repo" and other management commands directly to the TUI.
+*   **TUI Enhancements**:
+    *   "Register Repo" option (Logic exists in `register-repo` module, needs TUI wiring).
+    *   Dashboard for viewing registered repositories.
+
