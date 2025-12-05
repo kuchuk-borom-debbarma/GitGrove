@@ -66,29 +66,8 @@ Automatically tags commit messages to maintain a clean history without manual ef
 
 The following features are designed but not yet fully implemented:
 
-## 6. Integration (`gg sync`) [Implemented]
-
-Merges changes from Orphan branches (isolated history) back into the Trunk (monorepo history).
-
-*   **Command**: `gg sync [repo-name]`
-*   **Default Behavior**:
-    *   **Squash**: Compresses all orphan commits into a single commit for a clean trunk history.
-    *   **Review Mode (No Auto-Commit)**: Stages the changes but **does not commit** them, allowing user review.
-*   **Flags**:
-    *   `--no-squash`: Preserves the full commit history of the orphan branch.
-    *   `--commit`: Automatically creating the merge commit (bypassing the review stage).
-*   **Logic**:
-    *   Auto-detects if run from an orphan branch and switches to trunk automatically.
-    *   Uses `git subtree merge` (or `git merge -Xsubtree`) to correctly map files.
-    *   Appends `[RepoName]` to the merge commit message.
-
----
-
-## Features In Progress / Planned
-
-The following features are designed but not yet fully implemented:
-
 *   **Development Loop (`gg checkout`)**: Commands to easily switch between the Trunk and Orphan branches are not yet implemented.
+*   **Integration (`gg sync`)**: Logic to merge changes from Orphan branches back into the Trunk (using subtree merge) is pending.
 *   **TUI Enhancements**:
     *   "Register Repo" option (Logic exists in `register-repo` module, needs TUI wiring).
     *   Dashboard for viewing registered repositories.

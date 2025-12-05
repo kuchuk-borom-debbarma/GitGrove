@@ -3,12 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/kuchuk-borom-debbarma/GitGrove/src/internal/grove/hooks"
 	"github.com/kuchuk-borom-debbarma/GitGrove/src/internal/grove/initialize"
-	"github.com/kuchuk-borom-debbarma/GitGrove/src/internal/grove/sync"
 	"github.com/kuchuk-borom-debbarma/GitGrove/src/internal/tui"
 )
 
@@ -64,33 +62,6 @@ func main() {
 				os.Exit(1)
 			}
 			fmt.Println("GitGrove initialized successfully!")
-			os.Exit(0)
-		case "sync":
-			targetArg := ""
-			squash := true
-			commit := false // Default: Squash and No Commit (Stage only)
-
-			// Basic arg parsing: check args starting from index 2
-			for i := 2; i < len(os.Args); i++ {
-				arg := os.Args[i]
-				if arg == "--no-squash" {
-					squash = false
-				} else if arg == "--commit" {
-					commit = true
-				} else if arg == "--repo" {
-					if i+1 < len(os.Args) {
-						targetArg = os.Args[i+1]
-						i++ // Skip value
-					}
-				} else if !strings.HasPrefix(arg, "-") && targetArg == "" {
-					targetArg = arg
-				}
-			}
-
-			if err := sync.Sync(targetArg, squash, commit); err != nil {
-				fmt.Fprintf(os.Stderr, "Error syncing: %v\n", err)
-				os.Exit(1)
-			}
 			os.Exit(0)
 		}
 	}
