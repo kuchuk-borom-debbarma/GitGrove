@@ -22,15 +22,25 @@ func IsGroveInitialized(path string) error {
 }
 
 // CreateGroveConfig creates the .gg directory and the gg.json file.
-func CreateGroveConfig(path string) error {
+func CreateGroveConfig(path string, atomicCommit bool) error {
 	ggDir := filepath.Join(path, ".gg")
 	if err := os.MkdirAll(ggDir, 0755); err != nil {
 		return fmt.Errorf("failed to create .gg directory: %w", err)
 	}
 
 	configPath := filepath.Join(ggDir, "gg.json")
-	// Create an empty or default config file
-	if err := os.WriteFile(configPath, []byte("{\n  \"repositories\": {}\n}\n"), 0644); err != nil {
+
+	config := GGConfig{
+		Repositories: make(map[string]model.GGRepo),
+		AtomicCommit: atomicCommit,
+	}
+
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal gg.json: %w", err)
+	}
+
+	if err := os.WriteFile(configPath, data, 0644); err != nil {
 		return fmt.Errorf("failed to create gg.json: %w", err)
 	}
 
@@ -40,6 +50,7 @@ func CreateGroveConfig(path string) error {
 // GGConfig represents the structure of gg.json
 type GGConfig struct {
 	Repositories map[string]model.GGRepo `json:"repositories"`
+	AtomicCommit bool                    `json:"atomic_commit"`
 }
 
 // LoadConfig reads the gg.json configuration from the .gg directory.

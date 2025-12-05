@@ -22,7 +22,8 @@ import (
 //     logical repositories and their paths within the monorepo.
 //  3. Commit this configuration to the current branch, formally establishing it
 //     as the root of the GitGrove system.
-func Initialize(path string) error {
+//     as the root of the GitGrove system.
+func Initialize(path string, atomicCommit bool) error {
 	//Validations
 	//Validate if its a valid git repository
 	if err := gitUtil.IsGitRepository(path); err != nil {
@@ -34,12 +35,12 @@ func Initialize(path string) error {
 	}
 
 	//create .gg/gg.json file
-	if err := groveUtil.CreateGroveConfig(path); err != nil {
+	if err := groveUtil.CreateGroveConfig(path, atomicCommit); err != nil {
 		return err
 	}
 
-	// Install pre-commit hook
-	if err := installPreCommitHook(path); err != nil {
+	// Install hooks
+	if err := installHooks(path); err != nil {
 		return err
 	}
 
@@ -51,9 +52,10 @@ func Initialize(path string) error {
 	return nil
 }
 
-func installPreCommitHook(path string) error {
-	hookPath := filepath.Join(path, ".git", "hooks", "pre-commit")
-	content := `#!/bin/sh
+func installHooks(path string) error {
+	// Pre-commit
+	preCommitHookPath := filepath.Join(path, ".git", "hooks", "pre-commit")
+	preCommitContent := `#!/bin/sh
 # GitGrove Pre-commit Hook
 if command -v git-grove >/dev/null 2>&1; then
     git-grove hook pre-commit
@@ -61,8 +63,21 @@ else
     echo "Warning: git-grove not found, skipping context checks."
 fi
 `
-	if err := os.WriteFile(hookPath, []byte(content), 0755); err != nil {
+	if err := os.WriteFile(preCommitHookPath, []byte(preCommitContent), 0755); err != nil {
 		return fmt.Errorf("failed to create pre-commit hook: %w", err)
 	}
+
+	// Prepare-commit-msg
+	prepareMsgHookPath := filepath.Join(path, ".git", "hooks", "prepare-commit-msg")
+	prepareMsgContent := `#!/bin/sh
+# GitGrove Prepare-commit-msg Hook
+if command -v git-grove >/dev/null 2>&1; then
+    git-grove hook prepare-commit-msg "$1" "$2" "$3"
+fi
+`
+	if err := os.WriteFile(prepareMsgHookPath, []byte(prepareMsgContent), 0755); err != nil {
+		return fmt.Errorf("failed to create prepare-commit-msg hook: %w", err)
+	}
+
 	return nil
 }

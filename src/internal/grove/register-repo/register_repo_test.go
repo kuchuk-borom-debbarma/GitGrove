@@ -36,7 +36,7 @@ func setupTestRepo(t *testing.T) string {
 	cmd.Run()
 
 	// Initialize Grove
-	if err := initialize.Initialize(dir); err != nil {
+	if err := initialize.Initialize(dir, false); err != nil {
 		os.RemoveAll(dir)
 		t.Fatalf("Failed to initialize grove: %v", err)
 	}

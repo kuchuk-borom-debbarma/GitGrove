@@ -34,10 +34,12 @@ func TestPreCommit(t *testing.T) {
 		t.Errorf("expected pass when no gg.json, got error: %v", err)
 	}
 
-	// Init Grove (create gg.json)
-	groveUtil.CreateGroveConfig(tmpDir)
-
-	// Register repos
+	// 1. Setup mock environment
+	err = groveUtil.CreateGroveConfig(tmpDir, false) // Changed setup.Cwd to tmpDir to match test context
+	// assert.NoError(t, err) repos // This line seems to be a partial instruction, removing "repos" and adding error check
+	if err != nil {
+		t.Fatalf("failed to create grove config: %v", err)
+	}
 	repos := []model.GGRepo{
 		{Name: "repoA", Path: "services/repoA"},
 		{Name: "repoB", Path: "services/repoB"},

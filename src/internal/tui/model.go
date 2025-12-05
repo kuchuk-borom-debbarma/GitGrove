@@ -60,6 +60,8 @@ type Model struct {
 	cursor        int
 	choices       []string
 	inputtingPath bool
+	askingAtomic  bool
+	path          string
 	textInput     textinput.Model
 }
 
@@ -92,6 +94,37 @@ func (m Model) Init() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
+	if m.askingAtomic {
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "y", "Y":
+				if err := initialize.Initialize(m.path, true); err != nil {
+					m.err = err
+				} else {
+					m.isGroveRepo = true
+					m.repoInfo = "GitGrove Initialized at " + m.path
+				}
+				m.askingAtomic = false
+				return m, nil
+			case "n", "N":
+				if err := initialize.Initialize(m.path, false); err != nil {
+					m.err = err
+				} else {
+					m.isGroveRepo = true
+					m.repoInfo = "GitGrove Initialized at " + m.path
+				}
+				m.askingAtomic = false
+				return m, nil
+			case "esc", "q":
+				m.askingAtomic = false
+				m.inputtingPath = false
+				return m, nil
+			}
+		}
+		return m, nil
+	}
+
 	if m.inputtingPath {
 		switch msg := msg.(type) {
 		case tea.KeyMsg:
@@ -101,21 +134,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if path == "" {
 					path, _ = os.Getwd()
 				}
-				// The original code used `grove.Initialize(path)`.
-				// The instruction specified `initialize.Initialize(cwd)`.
-				// To make the code syntactically correct and functional,
-				// assuming `initialize` refers to `groveUtil` and `cwd` was a typo for `path`,
-				// the call is updated to `groveUtil.Initialize(path)`.
-				// If `initialize` is a new package, it needs to be imported.
-				// If `cwd` is strictly required, it needs to be defined in this scope.
-				// Sticking to the most likely intent given the context and avoiding new errors.
-				if err := initialize.Initialize(path); err != nil {
-					m.err = err
-				} else {
-					m.isGroveRepo = true
-					m.repoInfo = "GitGrove Initialized at " + path
-				}
+				m.path = path
 				m.inputtingPath = false
+				m.askingAtomic = true
 				return m, nil
 			case tea.KeyEsc:
 				m.inputtingPath = false
@@ -185,6 +206,8 @@ func (m Model) View() string {
 			if m.err != nil {
 				s += "\n" + errorStyle.Render(fmt.Sprintf("Error: %v", m.err)) + "\n"
 			}
+		} else if m.askingAtomic {
+			s += "Automatically append [RepoName] to commit messages? [y/N]:"
 		} else {
 			s += "Not a GitGrove Repository.\n\n"
 

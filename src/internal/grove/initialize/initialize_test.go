@@ -33,7 +33,7 @@ func TestInitialize(t *testing.T) {
 	cmd.Run()
 
 	// Run Initialize
-	if err := initialize.Initialize(tempDir); err != nil {
+	if err := initialize.Initialize(tempDir, false); err != nil {
 		t.Fatalf("Initialize failed: %v", err)
 	}
 
