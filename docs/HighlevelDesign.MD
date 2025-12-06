@@ -62,8 +62,9 @@ If you plan on just having commit context then use GGC
 Here is the documentation for the lightweight alternative. This moves away from complex branching and focuses purely on Workflow Discipline within a standard Monorepo.
 
 GitGrove: Context-Aware Commit (GGC)
-The Lightweight Discipline Layer
-GGC is a standalone feature of GitGrove that enforces strict commit hygiene in a Monorepo. Unlike the full GitGrove suite, it does not use Orphan Branches, Subtrees, or File Hiding. It operates purely as a smart Commit Gatekeeper on your standard main branch.
+The Integrated Discipline Layer
+"GGC" refers to the Context-Aware Commit features integrated into GitGrove. It enforces strict commit hygiene in a Monorepo. While it can be conceptually thought of as a lightweight layer, it is fully integrated into the standard `gg` workflow and configuration.
+It ensures that although your code lives in one giant folder, your commit history looks like it came from isolated micro-services.
 It ensures that although your code lives in one giant folder, your commit history looks like it came from isolated micro-services.
 1. Setup: Registration
 You tell GGC which folders represent logical "repositories."

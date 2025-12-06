@@ -56,11 +56,11 @@ Automatically tags commit messages to maintain a clean history without manual ef
 *   **Mechanism**: `prepare-commit-msg` Hook
 *   **Logic**:
     *   **Trigger**: Fires when a commit is created.
-    *   **Condition**: If all staged files belong to a *single* registered repository (e.g., `serviceA`).
+    *   **Condition**: If all staged files belong to a *single* registered repository (e.g., `serviceA`) and no root files are involved.
     *   **Action**: Automatically prepends `[serviceA]` to the commit message.
     *   **Configuration**: Can be enabled/disabled via `repo_aware_context_message` flag in `gg.json`.
 
-## 5. Integration (Prepare for Merge)
+## 6. Integration (Prepare for Merge)
 Prepares work from an isolated branch for integration into the trunk.
 
 *   **Command**: `gg prepare-merge [repoName]`
