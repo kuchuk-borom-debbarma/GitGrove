@@ -12,6 +12,7 @@ import (
 	registerrepo "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/grove/register-repo"
 	gitUtil "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/util/git"
 	groveUtil "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/util/grove"
+	"github.com/kuchuk-borom-debbarma/GitGrove/src/model"
 )
 
 // Styles
@@ -64,20 +65,25 @@ const (
 	StateInputPath
 	StateInputAtomic
 	StateRepoSelection
+	StateRegisterRepoName
+	StateRegisterRepoPath
 )
 
 type Model struct {
-	state        AppState
-	repoInfo     string
-	err          error
-	quitting     bool
-	cursor       int
-	choices      []string
-	repoChoices  []string // List of available repos for selection
-	repoCursor   int
-	path         string
-	textInput    textinput.Model
-	descriptions map[string]string
+	state            AppState
+	repoInfo         string
+	err              error
+	quitting         bool
+	cursor           int
+	choices          []string
+	repoChoices      []string // List of available repos for selection
+	repoCursor       int
+	path             string
+	textInput        textinput.Model
+	descriptions     map[string]string
+	registerName     string   // Name for the new repo
+	suggestions      []string // Autocompletion suggestions
+	suggestionCursor int      // Selected suggestion index
 }
 
 func InitialModel() Model {
@@ -233,7 +239,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "enter":
 				switch m.choices[m.cursor] {
 				case "Register Repo (Placeholder)":
-					// Placeholder
+					m.state = StateRegisterRepoName
+					m.textInput.SetValue("")
+					m.textInput.Placeholder = "Enter repository name (e.g., service-a)"
+					m.textInput.Focus()
+					return m, nil
 				case "Prepare Merge":
 					// Check local context
 					branch, err := gitUtil.CurrentBranch(m.path)
@@ -290,6 +300,87 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
+
+	case StateRegisterRepoName:
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.Type {
+			case tea.KeyEnter:
+				name := m.textInput.Value()
+				if name != "" {
+					m.registerName = name
+					m.state = StateRegisterRepoPath
+					m.textInput.SetValue("")
+					m.textInput.Placeholder = "Enter repository path (relative to root)"
+					m.suggestions = nil
+				}
+			case tea.KeyEsc:
+				m.state = StateIdle
+			}
+		}
+		m.textInput, cmd = m.textInput.Update(msg)
+		return m, cmd
+
+	case StateRegisterRepoPath:
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.Type {
+			case tea.KeyTab: // Not tea.KeyTab? tea.KeyTab is correct but let's check standard tea
+				if len(m.suggestions) > 0 {
+					m.textInput.SetValue(m.suggestions[m.suggestionCursor]) // Use selected suggestion
+					// Move cursor to end?
+					m.textInput.CursorEnd()
+					m.suggestions = nil // Clear suggestions after selection? Or keep to allow drilling down?
+					// Usually we want to clear or update. Let's update suggestions based on new value.
+					m.suggestions = getSuggestions(m.path, m.textInput.Value())
+					m.suggestionCursor = 0
+				}
+				return m, nil
+			case tea.KeyEnter:
+				repoPath := m.textInput.Value()
+				if repoPath != "" {
+					// Call RegisterRepo
+					// Need creating model.GGRepo struct. Import github.com/kuchuk-borom-debbarma/GitGrove/src/model
+					// Wait, import is not here. I need to add it to imports.
+					newRepo := model.GGRepo{
+						Name: m.registerName,
+						Path: repoPath, // Should be relative path
+					}
+					// Only one repo
+					if err := registerrepo.RegisterRepo([]model.GGRepo{newRepo}, m.path); err != nil {
+						m.err = err
+					} else {
+						m.repoInfo = fmt.Sprintf("Registered repo: %s", m.registerName)
+						m.state = StateIdle
+					}
+				}
+			case tea.KeyEsc:
+				m.state = StateIdle
+			case tea.KeyUp:
+				if len(m.suggestions) > 0 {
+					m.suggestionCursor--
+					if m.suggestionCursor < 0 {
+						m.suggestionCursor = len(m.suggestions) - 1
+					}
+				}
+			case tea.KeyDown:
+				if len(m.suggestions) > 0 {
+					m.suggestionCursor++
+					if m.suggestionCursor >= len(m.suggestions) {
+						m.suggestionCursor = 0
+					}
+				}
+			default:
+				// For any other key, update text input first
+				m.textInput, cmd = m.textInput.Update(msg)
+				// Then update suggestions
+				m.suggestions = getSuggestions(m.path, m.textInput.Value())
+				m.suggestionCursor = 0
+				return m, cmd
+			}
+		}
+		// If tab wasn't pressed
+		return m, nil
 
 	case StateRepoSelection:
 		switch msg := msg.(type) {
@@ -404,6 +495,42 @@ func (m Model) View() string {
 			}
 		}
 		s += "\n" + infoStyle.Render("(esc to cancel, enter to select)") + "\n"
+		if m.err != nil {
+			s += "\n" + errorStyle.Render(fmt.Sprintf("Error: %v", m.err)) + "\n"
+		}
+
+	case StateRegisterRepoName:
+		s += "Register New Repository\n"
+		s += "Enter Repository Name (e.g., service-a):\n\n"
+		s += inputStyle.Render(m.textInput.View())
+		s += "\n\n" + infoStyle.Render("(esc to cancel, enter to next)") + "\n"
+
+	case StateRegisterRepoPath:
+		s += "Register New Repository\n"
+		s += "Enter Path for " + m.registerName + ":\n\n"
+		s += inputStyle.Render(m.textInput.View())
+		s += "\n"
+
+		// Render suggestions
+		if len(m.suggestions) > 0 {
+			s += "\nSuggestions:\n"
+			for i, sugg := range m.suggestions {
+				cursor := " "
+				if i == m.suggestionCursor {
+					cursor = ">"
+					s += selectedItemStyle.Render(fmt.Sprintf("%s %s", cursor, sugg)) + "\n"
+				} else {
+					s += itemStyle.Render(fmt.Sprintf("%s %s", cursor, sugg)) + "\n"
+				}
+				// Limit suggestions to 5?
+				if i >= 4 {
+					s += itemStyle.Render("  ...") + "\n"
+					break
+				}
+			}
+		}
+
+		s += "\n" + infoStyle.Render("(esc to cancel, tab to autocomplete, enter to confirm)") + "\n"
 		if m.err != nil {
 			s += "\n" + errorStyle.Render(fmt.Sprintf("Error: %v", m.err)) + "\n"
 		}
