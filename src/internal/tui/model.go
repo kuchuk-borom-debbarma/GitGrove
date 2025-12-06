@@ -164,14 +164,43 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state = StateInputPath
 					cwd, _ := os.Getwd()
 					m.textInput.SetValue(cwd)
-					m.suggestions = nil // Reset suggestions
+					// Initialize suggestions for CWD
+					// For Init, we actually want suggestions for THE PATH being typed.
+					// Initially it's CWD.
+					// But usually Init path suggestions should be relative to where?
+					// If input is absolute path, getSuggestions might need adjustment.
+					// Current getSuggestions assumes relative to basePath.
+					// If m.textInput has absolute path CWD, getSuggestions(cwd, cwd) -> might conform to logic?
+					// If input "..." -> dir "." -> search CWD.
+					// If input starts with /, it might be treated as absolute.
+					// Let's rely on getSuggestions handling or simply show nothing initially if full path is set.
+					// BUT for RegisterRepoPath and OpenRepoPath, user starts with empty or relative.
+
+					// User requested: "always show the path suggestion i dont see it until i type any paths"
+					// For Init: Input is pre-filled with CWD. Suggestions for siblings of CWD?
+					// Or children?
+					// If user clears it, they get suggestions.
+					// Let's reset suggestions to nil here because fully qualified path is likely valid/done.
+					// Or trigger it?
+					// Let's stick to user request for the OTHER flows primarily if Init is pre-filled.
+					// But user mentioned "init path as well as register path".
+					// So let's trigger it.
+					m.suggestions = getSuggestions(cwd, m.textInput.Value())
+					m.suggestionCursor = 0
 					return m, nil
 				case "Open Repository":
 					m.state = StateOpenRepoPath
 					cwd, _ := os.Getwd()
-					m.textInput.SetValue(cwd)
+					m.textInput.SetValue("") // User starts empty? Or CWD? "Path to existing..." usually implies search.
+					// Previous code set value to CWD. User might want to browse from CWD.
+					// Let's set to "" to force browsing? Or CWD?
+					// If CWD, they see children of CWD?
+					// Let's set to "" so they see top level dirs of CWD.
+					// Wait, if I set "" and call getSuggestions(cwd, ""), I get children of cwd.
+					m.textInput.SetValue("")
 					m.textInput.Placeholder = "Path to existing GitGrove repository"
-					m.suggestions = nil
+					m.suggestions = getSuggestions(cwd, "")
+					m.suggestionCursor = 0
 					return m, nil
 				case "Quit":
 					m.quitting = true
@@ -445,7 +474,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state = StateRegisterRepoPath
 					m.textInput.SetValue("")
 					m.textInput.Placeholder = "Enter repository path (relative to root)"
-					m.suggestions = nil
+
+					// Initialize suggestions from root (m.path is repo root)
+					m.suggestions = getSuggestions(m.path, "")
+					m.suggestionCursor = 0
 				}
 			case tea.KeyEsc:
 				m.state = StateIdle

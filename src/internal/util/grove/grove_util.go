@@ -139,6 +139,9 @@ func RegisterRepoInConfig(ggRootPath string, newRepos []model.GGRepo) error {
 
 	// Validate and add new repos
 	for _, newRepo := range newRepos {
+		// Normalize path (remove ./, resolve .., remove trailing slash)
+		newRepo.Path = filepath.Clean(newRepo.Path)
+
 		// Validation: Check if path is within root
 		absPath := filepath.Join(ggRootPath, newRepo.Path)
 		// Clean to resolve ..
