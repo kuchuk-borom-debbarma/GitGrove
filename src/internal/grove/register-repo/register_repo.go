@@ -10,6 +10,14 @@ import (
 	"github.com/kuchuk-borom-debbarma/GitGrove/src/model"
 )
 
+// Description returns a description of the register repo process.
+func Description() string {
+	return "Register Repo: Isolates a folder into a logical repository.\n" +
+		"- Adds repository metadata to gg.json\n" +
+		"- Creates an orphan branch (gg/<trunk>/<repoName>) with isolated history\n" +
+		"- Moves files to root in the orphan branch"
+}
+
 // RegisterRepo registers a folder as a "repo" within the GitGrove monorepo.
 //
 // Concept: The Split

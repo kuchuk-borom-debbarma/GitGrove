@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/kuchuk-borom-debbarma/GitGrove/src/internal/grove/initialize"
 	preparemerge "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/grove/prepare-merge"
+	registerrepo "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/grove/register-repo"
 	gitUtil "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/util/git"
 	groveUtil "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/util/grove"
 )
@@ -66,16 +67,17 @@ const (
 )
 
 type Model struct {
-	state       AppState
-	repoInfo    string
-	err         error
-	quitting    bool
-	cursor      int
-	choices     []string
-	repoChoices []string // List of available repos for selection
-	repoCursor  int
-	path        string
-	textInput   textinput.Model
+	state        AppState
+	repoInfo     string
+	err          error
+	quitting     bool
+	cursor       int
+	choices      []string
+	repoChoices  []string // List of available repos for selection
+	repoCursor   int
+	path         string
+	textInput    textinput.Model
+	descriptions map[string]string
 }
 
 func InitialModel() Model {
@@ -99,15 +101,29 @@ func InitialModel() Model {
 
 	// Main menu choices for initialized repo
 	mainChoices := []string{"Register Repo (Placeholder)", "Prepare Merge", "Quit"}
+	descriptions := make(map[string]string)
+
 	if initialState == StateInit {
 		mainChoices = []string{"Init GitGrove", "Quit"}
+		descriptions["Init GitGrove"] = initialize.Description()
+	} else {
+		// Populate descriptions for initialized state
+		// Note: "Register Repo (Placeholder)" might not have a direct package link yet if we are not importing it,
+		// but we can import registerrepo for Description().
+		// We'll need to add imports to model.go
+		descriptions["Register Repo (Placeholder)"] = registerrepo.Description()
+		// Actually use package description if imported
+		// descriptions["Register Repo (Placeholder)"] = registerrepo.Description()
+		descriptions["Prepare Merge"] = preparemerge.Description()
 	}
+	descriptions["Quit"] = "Exit the application."
 
 	return Model{
-		state:     initialState,
-		choices:   mainChoices,
-		textInput: ti,
-		path:      cwd, // Set path default
+		state:        initialState,
+		choices:      mainChoices,
+		textInput:    ti,
+		path:         cwd,
+		descriptions: descriptions,
 	}
 }
 
@@ -391,6 +407,26 @@ func (m Model) View() string {
 		if m.err != nil {
 			s += "\n" + errorStyle.Render(fmt.Sprintf("Error: %v", m.err)) + "\n"
 		}
+	}
+
+	// Dynamic Description Pane
+	// Shows description for the currently selected item in main menus
+	var description string
+	if m.state == StateInit || m.state == StateIdle {
+		if m.cursor >= 0 && m.cursor < len(m.choices) {
+			selected := m.choices[m.cursor]
+			if desc, ok := m.descriptions[selected]; ok {
+				description = desc
+			}
+		}
+	}
+
+	if description != "" {
+		// Render description box
+		descBox := titleBorderStyle.Render(
+			infoStyle.Render(description),
+		)
+		return appStyle.Render(header + "\n" + s + "\n" + descBox)
 	}
 
 	return appStyle.Render(header + "\n" + s)

@@ -9,6 +9,14 @@ import (
 	groveUtil "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/util/grove"
 )
 
+// Description returns a description of the initialization process.
+func Description() string {
+	return "Initialize: Establishes the current branch as the Trunk.\n" +
+		"- Creates .gg/gg.json registry\n" +
+		"- Installs pre-commit and prepare-commit-msg hooks\n" +
+		"- Commits the configuration to the current branch"
+}
+
 // Initialize establishes the "Trunk" for the GitGrove monorepo.
 //
 // Concept: The Trunk

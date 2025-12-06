@@ -12,6 +12,15 @@ import (
 	groveUtil "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/util/grove"
 )
 
+// Description returns a description of the prepare merge process.
+func Description() string {
+	return "Prepare Merge: Prepares work for integration into the Trunk.\n" +
+		"- Switches to trunk\n" +
+		"- Creates a temporary merge-prep branch\n" +
+		"- Merges changes from the orphan branch (restoring directory structure)\n" +
+		"- Excludes .gg/trunk artifact"
+}
+
 // PrepareMerge handles the logic for preparing a merge from an orphan branch to the trunk.
 func PrepareMerge(ggRepoPath string, repoNameArg string) error {
 	// 1. Context Detection
