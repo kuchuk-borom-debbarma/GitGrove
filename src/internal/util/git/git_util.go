@@ -10,6 +10,7 @@ import (
 
 // IsGitRepository checks if the given path is a valid git repository.
 func IsGitRepository(path string) error {
+	path = filepath.Clean(path)
 	gitDir := filepath.Join(path, ".git")
 	info, err := os.Stat(gitDir)
 	if err != nil {
@@ -26,6 +27,7 @@ func IsGitRepository(path string) error {
 
 // Commit stages the given files and commits them with the provided message.
 func Commit(repoPath string, files []string, message string) error {
+	repoPath = filepath.Clean(repoPath)
 	// Stage files
 	args := append([]string{"add"}, files...)
 	cmd := exec.Command("git", args...)
@@ -46,6 +48,8 @@ func Commit(repoPath string, files []string, message string) error {
 
 // SubtreeSplit creates a new branch using git subtree split.
 func SubtreeSplit(repoPath string, prefix string, branchName string) error {
+	repoPath = filepath.Clean(repoPath)
+	prefix = filepath.Clean(prefix)
 	cmd := exec.Command("git", "subtree", "split", "--prefix="+prefix, "-b", branchName)
 	cmd.Dir = repoPath
 	if output, err := cmd.CombinedOutput(); err != nil {
@@ -56,6 +60,7 @@ func SubtreeSplit(repoPath string, prefix string, branchName string) error {
 
 // GetStagedFiles returns a list of files that are currently staged for commit.
 func GetStagedFiles(repoPath string) ([]string, error) {
+	repoPath = filepath.Clean(repoPath)
 	cmd := exec.Command("git", "diff", "--cached", "--name-only")
 	cmd.Dir = repoPath
 	output, err := cmd.CombinedOutput()
@@ -75,6 +80,8 @@ func GetStagedFiles(repoPath string) ([]string, error) {
 
 // SubtreeMerge merges the given branch using git subtree merge.
 func SubtreeMerge(repoPath string, prefix string, branchName string) error {
+	repoPath = filepath.Clean(repoPath)
+	prefix = filepath.Clean(prefix)
 	// Use 'git merge -s subtree' directly to support --allow-unrelated-histories
 	// Use -Xtheirs to resolve "add/add" conflicts caused by unrelated histories (assuming main hasn't changed registered paths as per design)
 	cmd := exec.Command("git", "merge", "-s", "subtree", "--allow-unrelated-histories", "-Xsubtree="+prefix, "-Xtheirs", branchName, "-m", "Merge orphan branch "+branchName)
@@ -87,6 +94,7 @@ func SubtreeMerge(repoPath string, prefix string, branchName string) error {
 
 // CurrentBranch returns the name of the current git branch.
 func CurrentBranch(repoPath string) (string, error) {
+	repoPath = filepath.Clean(repoPath)
 	cmd := exec.Command("git", "symbolic-ref", "--short", "HEAD")
 	cmd.Dir = repoPath
 	output, err := cmd.CombinedOutput()
@@ -98,6 +106,7 @@ func CurrentBranch(repoPath string) (string, error) {
 
 // Checkout switches to the specified branch.
 func Checkout(repoPath string, branchName string) error {
+	repoPath = filepath.Clean(repoPath)
 	cmd := exec.Command("git", "checkout", branchName)
 	cmd.Dir = repoPath
 	if output, err := cmd.CombinedOutput(); err != nil {
@@ -108,6 +117,7 @@ func Checkout(repoPath string, branchName string) error {
 
 // CreateBranch creates a new branch (off the current HEAD) and switches to it.
 func CreateBranch(repoPath string, branchName string) error {
+	repoPath = filepath.Clean(repoPath)
 	cmd := exec.Command("git", "checkout", "-b", branchName)
 	cmd.Dir = repoPath
 	if output, err := cmd.CombinedOutput(); err != nil {
@@ -118,6 +128,7 @@ func CreateBranch(repoPath string, branchName string) error {
 
 // FileExistsInBranch checks if a file exists in a specific branch.
 func FileExistsInBranch(repoPath string, branchName string, filePath string) (bool, error) {
+	repoPath = filepath.Clean(repoPath)
 	// git cat-file -e <branch>:<file>
 	// -e exits with 0 if file exists, 1 if not (or malformed)
 	object := fmt.Sprintf("%s:%s", branchName, filePath)
