@@ -6,20 +6,20 @@ The process begins by establishing the "Main" branch as the source of truth (The
     • Command: gg init
     • Action:
         ○ Initializes the gg environment.
-        ○ Creates a gg.yaml metadata file to store repo paths and relationships.
+        ○ Creates a gg.json metadata file to store repo paths and relationships.
         ○ Commits this configuration to main.
 2. Registration (The Split)
 When a folder is registered as a "repo," GG creates a parallel history for it.
     • Command: gg register serviceA ./backend/services/serviceA
     • Action:
         ○ Orphan Creation: GG scans the history of the target folder.
-        ○ Path Translation: It uses git subtree split to create a new orphan branch (e.g., gg/serviceA).
+        ○ Path Translation: It uses git subtree split to create a new orphan branch (e.g., gg/main/serviceA).
         ○ Root Projection: Inside this new branch, the files are moved to the Root Directory.
             § Trunk View: ./backend/services/serviceA/main.go
             § Orphan View: ./main.go
     3. Limitation: Nested Repositories
     Nested directories cannot be registered as repositories at this time.
-    Rules for this are yet to be clearly defined.
+    Strict validation prevents registering a repository inside another registered repository.
 3. The Development Loop (Independent Tracking)
 Developers work inside these isolated orphan branches. This provides the "Per-Repo Commit Tracking" feature.
     • Command: gg checkout serviceA
@@ -35,9 +35,10 @@ To ensure the Monorepo history remains compatible with the Orphan history, GG en
     • Why? This forces users to make changes in the Orphan branch first. This ensures we never have "Ghost Changes" in Main that the Orphan branch doesn't know about, making merging easy and conflict-free.
 5. Integration (Prepare for Merge)
 When the work in the isolated branch is ready to be integrated, we prepare a branch for merging into the trunk.
-    • Command: gg prepare-merge
+    • Command: gg prepare-merge [repoName]
     • Goal: Create a bridge between the isolated orphan branch and the main trunk.
     • Action:
+        ○ Context Detection: Automatically detects if run from an Orphan Branch.
         ○ Creates a new branch off the trunk.
         ○ Brings in the changes from the registered repository's orphaned branch.
         ○ Applies path translation to ensure files land in their correct nested location (e.g., ./main.go -> ./backend/services/serviceA/main.go).
@@ -69,7 +70,7 @@ It ensures that although your code lives in one giant folder, your commit histor
 1. Setup: Registration
 You tell GGC which folders represent logical "repositories."
     • Command: gg register serviceA ./backend/services/serviceA
-    • State: GGC updates gg.yaml to map that specific path to the tag [serviceA].
+    • State: GGC updates gg.json to map that specific path to the tag [serviceA].
 2. The Core Feature: Smart Tagging & Validation
 When a developer runs gg commit, the tool analyzes the staged files before Git creates the commit.
 Scenario A: The Clean Commit

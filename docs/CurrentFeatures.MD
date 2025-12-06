@@ -75,12 +75,10 @@ Prepares work from an isolated branch for integration into the trunk.
 
 ---
 
-## Features In Progress / Planned
+## 7. Current Status
+*   **Ready**: Init, Register Repo (with auto-commit & path cleaning), Prepare Merge (Trunk & Orphan context).
+*   **TUI**: 
+    *   **Context Aware**: dynamically displays registered repositories or orphan branch context.
+    *   **Features**: Init, Open Repo, Register Repo, Prepare Merge.
 
-The following features are designed but not yet fully implemented:
-
-*   **Development Loop (`gg checkout`)**: Commands to easily switch between the Trunk and Orphan branches are not yet implemented.
-*   **TUI Enhancements**:
-    *   "Register Repo" option (Logic exists in `register-repo` module, needs TUI wiring).
-    *   Dashboard for viewing registered repositories.
 

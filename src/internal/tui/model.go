@@ -3,6 +3,9 @@ package tui
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"sort"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -83,6 +86,9 @@ type Model struct {
 	textInput        textinput.Model
 	descriptions     map[string]string
 	registerName     string   // Name for the new repo
+	isOrphan         bool     // True if in orphan branch
+	orphanRepoName   string   // Name of repo if in orphan branch
+	trunkBranch      string   // Name of trunk branch if in orphan branch
 	suggestions      []string // Autocompletion suggestions
 	suggestionCursor int      // Selected suggestion index
 }
@@ -92,12 +98,41 @@ func InitialModel() Model {
 
 	initialState := StateInit
 	var repoInfo string
-	if err := groveUtil.IsGroveInitialized(cwd); err != nil {
-		// IsGroveInitialized returns error if already initialized
+	var isOrphan bool
+	var orphanRepoName, trunkBranch string
+
+	// Check initialization status (returns error if initialized)
+	errInit := groveUtil.IsGroveInitialized(cwd)
+
+	if errInit != nil {
 		initialState = StateIdle
-		repoInfo = cwd
+		// Determine context: Trunk or Orphan?
+		currentBranch, err := gitUtil.CurrentBranch(cwd)
+		if err == nil {
+			// Check for Orphan Pattern: gg/<trunk>/<repoName>
+			// We can use the same logic as in grove_util or prepare_merge
+			// Or just simple prefix check for TUI display purposes
+			if len(currentBranch) > 3 && currentBranch[:3] == "gg/" {
+				isOrphan = true
+				// Parse: gg/main/serviceA -> trunk: main, repo: serviceA
+				// Assumption: trunk doesn't have slashes, or we rely on standard format
+				parts := strings.Split(currentBranch, "/")
+				if len(parts) >= 3 {
+					orphanRepoName = parts[len(parts)-1]
+					trunkBranch = strings.Join(parts[1:len(parts)-1], "/")
+					repoInfo = fmt.Sprintf("Orphan Branch: %s (Trunk: %s)", orphanRepoName, trunkBranch)
+				} else {
+					repoInfo = fmt.Sprintf("Orphan Branch: %s", currentBranch)
+				}
+			} else {
+				// Trunk context
+				repoInfo = getTrunkContextInfo(cwd, currentBranch)
+			}
+		} else {
+			repoInfo = cwd // Fallback
+		}
 	} else {
-		// No error means not initialized
+		// Not initialized
 		initialState = StateInit
 	}
 
@@ -109,7 +144,7 @@ func InitialModel() Model {
 	ti.SetValue(cwd)
 
 	// Main menu choices for initialized repo
-	mainChoices := []string{"Register Repo (Placeholder)", "Prepare Merge", "Quit"}
+	mainChoices := []string{"Register Repo", "Prepare Merge", "Quit"}
 	descriptions := make(map[string]string)
 
 	if initialState == StateInit {
@@ -121,7 +156,7 @@ func InitialModel() Model {
 		// Note: "Register Repo (Placeholder)" might not have a direct package link yet if we are not importing it,
 		// but we can import registerrepo for Description().
 		// We'll need to add imports to model.go
-		descriptions["Register Repo (Placeholder)"] = registerrepo.Description()
+		descriptions["Register Repo"] = registerrepo.Description()
 		// Actually use package description if imported
 		// descriptions["Register Repo (Placeholder)"] = registerrepo.Description()
 		descriptions["Prepare Merge"] = preparemerge.Description()
@@ -129,12 +164,15 @@ func InitialModel() Model {
 	descriptions["Quit"] = "Exit the application."
 
 	return Model{
-		state:        initialState,
-		choices:      mainChoices,
-		textInput:    ti,
-		path:         cwd,
-		repoInfo:     repoInfo,
-		descriptions: descriptions,
+		state:          initialState,
+		choices:        mainChoices,
+		textInput:      ti,
+		path:           cwd,
+		repoInfo:       repoInfo,
+		isOrphan:       isOrphan,
+		orphanRepoName: orphanRepoName,
+		trunkBranch:    trunkBranch,
+		descriptions:   descriptions,
 	}
 }
 
@@ -245,9 +283,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						(len(err.Error()) > 30 && err.Error()[:31] == "gitgrove is already initialized") {
 						// Success
 						m.path = path
-						m.repoInfo = path
+
+						// Get context info
+						currentBranch, _ := gitUtil.CurrentBranch(path)
+						m.repoInfo = getTrunkContextInfo(path, currentBranch)
+
 						m.state = StateIdle
-						m.choices = []string{"Register Repo (Placeholder)", "Prepare Merge", "Quit"}
+						m.choices = []string{"Register Repo", "Prepare Merge", "Quit"}
 						m.cursor = 0
 						m.err = nil
 					} else {
@@ -389,7 +431,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					m.repoInfo = "GitGrove Initialized at " + m.path
 					m.state = StateIdle
-					m.choices = []string{"Register Repo (Placeholder)", "Prepare Merge", "Quit"}
+					m.choices = []string{"Register Repo", "Prepare Merge", "Quit"}
 					m.cursor = 0
 				}
 				return m, nil
@@ -399,7 +441,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					m.repoInfo = "GitGrove Initialized at " + m.path
 					m.state = StateIdle
-					m.choices = []string{"Register Repo (Placeholder)", "Prepare Merge", "Quit"}
+					m.choices = []string{"Register Repo", "Prepare Merge", "Quit"}
 					m.cursor = 0
 				}
 				return m, nil
@@ -417,7 +459,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch msg.String() {
 			case "enter":
 				switch m.choices[m.cursor] {
-				case "Register Repo (Placeholder)":
+				case "Register Repo":
 					m.state = StateRegisterRepoName
 					m.textInput.SetValue("")
 					m.textInput.Placeholder = "Enter repository name (e.g., service-a)"
@@ -532,7 +574,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if err := registerrepo.RegisterRepo([]model.GGRepo{newRepo}, m.path); err != nil {
 						m.err = err
 					} else {
-						m.repoInfo = fmt.Sprintf("Registered repo: %s", m.registerName)
+						// Refresh context info
+						currentBranch, _ := gitUtil.CurrentBranch(m.path)
+						m.repoInfo = getTrunkContextInfo(m.path, currentBranch)
 						m.state = StateIdle
 					}
 				}
@@ -694,8 +738,8 @@ func (m Model) View() string {
 
 	case StateIdle:
 		s += successStyle.Render("Welcome to GitGrove!") + "\n\n"
-		s += "Current Repository Info:\n"
-		s += "  Path: " + m.repoInfo + "\n" // Placeholder
+		s += infoStyle.Render("Current Context:") + "\n"
+		s += "  " + m.repoInfo + "\n"
 		s += "\n"
 
 		for i, choice := range m.choices {
@@ -792,4 +836,27 @@ func (m Model) View() string {
 	}
 
 	return appStyle.Render(header + "\n" + s)
+}
+
+// Helper to get formatted trunk context info
+func getTrunkContextInfo(path string, currentBranch string) string {
+	config, err := groveUtil.LoadConfig(path)
+	if err != nil {
+		return fmt.Sprintf("Trunk: %s (Error loading config: %v)", currentBranch, err)
+	}
+
+	var repos []string
+	for name := range config.Repositories {
+		repos = append(repos, name)
+	}
+	// Sort for consistent display
+	sort.Strings(repos)
+
+	repoName := filepath.Base(path)
+	info := fmt.Sprintf("Current Repository: %s\n  Trunk: %s", repoName, currentBranch)
+
+	if len(repos) == 0 {
+		return fmt.Sprintf("%s\n  (No registered repositories)", info)
+	}
+	return fmt.Sprintf("%s\n  Registered Repositories:\n    - %s", info, strings.Join(repos, "\n    - "))
 }

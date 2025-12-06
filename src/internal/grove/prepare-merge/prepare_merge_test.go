@@ -73,10 +73,7 @@ func TestPrepareMerge_FromOrphanBranch(t *testing.T) {
 		t.Fatalf("RegisterRepo failed: %v", err)
 	}
 
-	// Commit gg.json so we can switch branches cleanly
-	if err := gitUtil.Commit(repoPath, []string{".gg/gg.json"}, "Register service-a"); err != nil {
-		t.Fatalf("Failed to commit gg.json: %v", err)
-	}
+	// gg.json is automatically committed by RegisterRepo now.
 
 	// 3. Checkout Orphan Branch: gg/main/service-a
 	orphanBranch := "gg/main/service-a"

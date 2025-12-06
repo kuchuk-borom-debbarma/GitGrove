@@ -10,7 +10,7 @@ The central integration branch. It contains the entire codebase.
 - **Workflow**: Developers merge into the trunk, but rarely commit directly to it for registered components.
 
 ### 2. The Split (Orphan Branches)
-For every registered component (e.g., `backend/serviceA`), GitGrove maintains a parallel "orphan" branch (e.g., `gg/serviceA`).
+For every registered component (e.g., `backend/serviceA`), GitGrove maintains a parallel "orphan" branch (e.g., `gg/main/serviceA`).
 - **Role**: Isolated development environment.
 - **Mechanism**: `git subtree split`.
 - **View**: Files from `backend/serviceA/*` are projected to the root `./*`.
@@ -40,9 +40,9 @@ Handles the setup of a GitGrove workspace.
 Manages the registration of sub-projects.
 - **Entry**: `RegisterRepo(repos []model.GGRepo, ggRepoPath string)`
 - **Key Actions**:
-  1. Validates no path conflicts or nesting.
-  2. Updates `gg.json`.
-  3. Executes `git subtree split` to create the initial orphan branch.
+  1. Validates no path conflicts or nested repositories.
+  2. Updates `gg.json` and commits it to the trunk.
+  3. Executes `git subtree split` to create the initial orphan branch (`gg/<trunk>/<repo>`).
 
 ### `grove/prepare-merge`
 Automates the creation of a merge-ready branch from an orphan branch.
@@ -74,11 +74,13 @@ The enforcement layer.
 The Terminal User Interface (BubbleTea).
 - **Entry**: `InitialModel()`
 - **States**:
-  - `Startup`: Checks if CWD is a GG repo.
+  - `Startup`: Checks if CWD is a GG repo. If initialized (Trunk or Orphan), enters `Idle`.
   - `Init`: Prompts for path and Atomic Commit preference.
-  - `ActionSelection`: Main menu for initialized repos (Register, Prepare Merge).
-  - `RepoSelection`: List of repos to select for `prepare-merge`.
-  - `Dashboard`: Shows current repo info.
+  - `ActionSelection` (Idle): Main menu.
+    - **Trunk**: Shows Registered Repos. Options: Register Repo, Prepare Merge.
+    - **Orphan**: Shows Orphan Context. Options: Prepare Merge.
+  - `OpenRepo`: Allows opening an existing GG repo from a non-root CWD.
+  - `RegisterRepo`: Interactive flow to add repositories.
 
 ## Data Structure: `gg.json`
 
@@ -88,11 +90,11 @@ Located at `.gg/gg.json`.
 {
   "version": "1.0",
   "repo_aware_context_message": true,
-  "repositories": [
-    {
-      "name": "serviceA",
-      "path": "backend/services/serviceA"
+  "repositories": {
+    "serviceA": {
+      "Name": "serviceA",
+      "Path": "backend/services/serviceA"
     }
-  ]
+  }
 }
 ```
