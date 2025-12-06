@@ -91,9 +91,11 @@ func InitialModel() Model {
 	cwd, _ := os.Getwd()
 
 	initialState := StateInit
+	var repoInfo string
 	if err := groveUtil.IsGroveInitialized(cwd); err != nil {
 		// IsGroveInitialized returns error if already initialized
 		initialState = StateIdle
+		repoInfo = cwd
 	} else {
 		// No error means not initialized
 		initialState = StateInit
@@ -131,6 +133,7 @@ func InitialModel() Model {
 		choices:      mainChoices,
 		textInput:    ti,
 		path:         cwd,
+		repoInfo:     repoInfo,
 		descriptions: descriptions,
 	}
 }
@@ -162,6 +165,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				switch m.choices[m.cursor] {
 				case "Init GitGrove":
 					m.state = StateInputPath
+					m.err = nil
 					cwd, _ := os.Getwd()
 					m.textInput.SetValue(cwd)
 					// Initialize suggestions for CWD
@@ -190,6 +194,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				case "Open Repository":
 					m.state = StateOpenRepoPath
+					m.err = nil
 					cwd, _ := os.Getwd()
 					m.textInput.SetValue("") // User starts empty? Or CWD? "Path to existing..." usually implies search.
 					// Previous code set value to CWD. User might want to browse from CWD.
@@ -323,6 +328,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case tea.KeyEsc:
 				// Go back to Init menu
 				m.state = StateInit
+				m.err = nil
 				return m, nil
 			case tea.KeyTab:
 				if len(m.suggestions) > 0 {
@@ -399,6 +405,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case "esc":
 				m.state = StateInputPath
+				m.err = nil
 				return m, nil
 			}
 		}
@@ -531,6 +538,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			case tea.KeyEsc:
 				m.state = StateIdle
+				m.err = nil
 			case tea.KeyUp:
 				if len(m.suggestions) > 0 {
 					m.suggestionCursor--
