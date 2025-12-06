@@ -22,18 +22,90 @@ func getSuggestions(basePath, input string) []string {
 	// For simplicity, assume input is clean enough or just string matching.
 
 	if strings.HasSuffix(input, "/") {
-		searchDir = filepath.Join(basePath, input)
+		if filepath.IsAbs(input) {
+			searchDir = input
+		} else {
+			searchDir = filepath.Join(basePath, input)
+		}
 		prefix = ""
 	} else {
 		dir := filepath.Dir(input)
-		if dir == "." {
+		if dir == "." && !filepath.IsAbs(input) {
 			dir = ""
 		}
-		searchDir = filepath.Join(basePath, dir)
+
+		if filepath.IsAbs(input) {
+			searchDir = dir
+		} else {
+			searchDir = filepath.Join(basePath, dir)
+		}
+
 		prefix = filepath.Base(input)
 		if prefix == "." { // e.g. input "backend" -> Dir ".", Base "backend"
 			prefix = input
-			searchDir = basePath
+			if filepath.IsAbs(input) {
+				searchDir = input // Should be dir? filepath.Dir(input)
+				// Wait, if input is "/Users", Dir is "/", Base is "Users".
+				// searchDir should be "/".
+				// IF input is "/Users/foo", Dir is "/Users", Base "foo".
+
+				// Re-evaluating prefix logic for absolute paths.
+				// filepath.Dir("/Users") -> "/"
+				// filepath.Base("/Users") -> "Users"
+				// logic above: "dir := filepath.Dir(input)".
+				// if input="/Users", dir="/".
+				// searchDir = "/"
+				// prefix = "Users"
+				// Correct.
+			} else {
+				// Revert to relative logic
+				if prefix == "." {
+					// wait, filepath.Base("backend") -> "backend".
+					// previous logic: if prefix == "." { prefix = input; searchDir = basePath }
+					// This was for "." case? Or "backend" case?
+					// filepath.Dir("backend") -> "."
+					// filepath.Base("backend") -> "backend".
+					// So prefix != ".".
+					// When does prefix == "."?
+					// filepath.Base(".") -> "."
+					// If input is ".", Dir is ".", Base is ".".
+				}
+				// Original logic:
+				// if prefix == "." { ... }
+				// was handling likely "." input specifically.
+				// Let's keep it robust.
+				searchDir = basePath // Default fallback for relative
+			}
+		}
+
+		// Clean logic for both:
+		// 1. Determine directory portion (searchDir)
+		// 2. Determine file portion (prefix)
+
+		if filepath.IsAbs(input) {
+			dir := filepath.Dir(input)
+			prefix = filepath.Base(input)
+			// Handle case where input is exactly "/"
+			if input == "/" {
+				dir = "/"
+				prefix = ""
+			}
+			searchDir = dir
+		} else {
+			// Relative logic
+			dir := filepath.Dir(input)
+			prefix = filepath.Base(input)
+
+			if dir == "." {
+				dir = ""
+			}
+			searchDir = filepath.Join(basePath, dir)
+
+			// Special handling for clean names without slashes
+			if !strings.Contains(input, string(filepath.Separator)) && input != "" {
+				searchDir = basePath
+				prefix = input
+			}
 		}
 	}
 
