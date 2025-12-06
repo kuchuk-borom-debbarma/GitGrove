@@ -80,5 +80,19 @@ func RegisterRepo(repos []model.GGRepo, ggRepoPath string) error {
 		return fmt.Errorf("failed to update config after branch creation: %w", err)
 	}
 
+	// Create a commit for the configuration change
+	var repoNames string
+	for i, repo := range repos {
+		if i > 0 {
+			repoNames += ", "
+		}
+		repoNames += repo.Name
+	}
+	message := fmt.Sprintf("Register repo(s): %s", repoNames)
+
+	if err := gitUtil.Commit(ggRepoPath, []string{".gg/gg.json"}, message); err != nil {
+		return fmt.Errorf("failed to commit configuration change: %w", err)
+	}
+
 	return nil
 }
