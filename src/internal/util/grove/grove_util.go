@@ -139,6 +139,19 @@ func RegisterRepoInConfig(ggRootPath string, newRepos []model.GGRepo) error {
 
 	// Validate and add new repos
 	for _, newRepo := range newRepos {
+		// Validation: Check if path is within root
+		absPath := filepath.Join(ggRootPath, newRepo.Path)
+		// Clean to resolve ..
+		absPath = filepath.Clean(absPath)
+
+		relCheck, err := filepath.Rel(ggRootPath, absPath)
+		if err != nil {
+			return fmt.Errorf("invalid path '%s': %w", newRepo.Path, err)
+		}
+		if strings.HasPrefix(relCheck, "..") {
+			return fmt.Errorf("path '%s' must be within repository root", newRepo.Path)
+		}
+
 		// Check for name conflict
 		if _, exists := config.Repositories[newRepo.Name]; exists {
 			return fmt.Errorf("repository with name '%s' already exists", newRepo.Name)

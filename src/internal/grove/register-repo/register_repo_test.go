@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/kuchuk-borom-debbarma/GitGrove/src/internal/grove/initialize"
@@ -121,5 +122,30 @@ func TestRegisterRepo(t *testing.T) {
 	}
 	if string(output) == "" {
 		t.Errorf("Branch '%s' was not created", expectedBranch)
+	}
+}
+
+func TestRegisterRepo_PathValidation(t *testing.T) {
+	repoPath := setupTestRepo(t)
+	defer os.RemoveAll(repoPath)
+
+	// Attempt to register a path outside the repo (e.g. ../outside)
+	// Since we are mocking, we just pass the path string.
+	// But RegisterRepo checks relative to repoPath.
+	// So we pass "../outside" as path.
+
+	newRepo := model.GGRepo{
+		Name: "outside-repo",
+		Path: "../outside",
+	}
+
+	err := RegisterRepo([]model.GGRepo{newRepo}, repoPath)
+	if err == nil {
+		t.Fatal("Expected RegisterRepo to fail for path '../outside', but it succeeded")
+	}
+
+	expectedError := "must be within repository root"
+	if !strings.Contains(err.Error(), expectedError) {
+		t.Errorf("Expected error containing '%s', got '%v'", expectedError, err)
 	}
 }

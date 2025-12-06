@@ -162,6 +162,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state = StateInputPath
 					cwd, _ := os.Getwd()
 					m.textInput.SetValue(cwd)
+					m.suggestions = nil // Reset suggestions
 					return m, nil
 				case "Quit":
 					m.quitting = true
@@ -196,9 +197,53 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Go back to Init menu
 				m.state = StateInit
 				return m, nil
+			case tea.KeyTab:
+				if len(m.suggestions) > 0 {
+					m.textInput.SetValue(m.suggestions[m.suggestionCursor])
+					m.textInput.CursorEnd()
+					m.suggestions = nil
+					// Update suggestions based on new path? Usually clearing is fine until next input.
+					// Or trigger update immediately if we want continuous drilling down.
+					// Let's re-fetch suggestions for the new full path to allow deeper navigation immediately.
+					// Use "." as base because Init path is absolute or relative to CWD?
+					// Text input defaults to CWD. If user clears it and types relative path, it's relative to CWD.
+					// getSuggestions takes (basePath, input).
+					// For Init, base is likely CWD.
+					cwd, _ := os.Getwd()
+					m.suggestions = getSuggestions(cwd, m.textInput.Value())
+					m.suggestionCursor = 0
+				}
+				return m, nil
+			case tea.KeyUp:
+				if len(m.suggestions) > 0 {
+					m.suggestionCursor--
+					if m.suggestionCursor < 0 {
+						m.suggestionCursor = len(m.suggestions) - 1
+					}
+				}
+				return m, nil // Don't process this key in textinput
+			case tea.KeyDown:
+				if len(m.suggestions) > 0 {
+					m.suggestionCursor++
+					if m.suggestionCursor >= len(m.suggestions) {
+						m.suggestionCursor = 0
+					}
+				}
+				return m, nil // Don't process this key in textinput
 			}
 		}
+
 		m.textInput, cmd = m.textInput.Update(msg)
+
+		// Update suggestions
+		// For Init path, we assume relative to CWD or absolute?
+		// Text input is pre-filled with CWD.
+		// getSuggestions is designed for relative paths inside repo root.
+		// Use "." (Current Directory) as base for Init.
+		cwd, _ := os.Getwd()
+		m.suggestions = getSuggestions(cwd, m.textInput.Value())
+		m.suggestionCursor = 0 // Reset cursor on new input
+
 		return m, cmd
 
 	case StateInputAtomic:
@@ -449,7 +494,28 @@ func (m Model) View() string {
 	case StateInputPath:
 		s += "Enter path to initialize GitGrove:\n\n"
 		s += inputStyle.Render(m.textInput.View())
-		s += "\n\n" + infoStyle.Render("(esc to cancel, enter to confirm)") + "\n"
+		s += "\n"
+
+		// Render suggestions
+		if len(m.suggestions) > 0 {
+			s += "\nSuggestions:\n"
+			for i, sugg := range m.suggestions {
+				cursor := " "
+				if i == m.suggestionCursor {
+					cursor = ">"
+					s += selectedItemStyle.Render(fmt.Sprintf("%s %s", cursor, sugg)) + "\n"
+				} else {
+					s += itemStyle.Render(fmt.Sprintf("%s %s", cursor, sugg)) + "\n"
+				}
+				// Limit suggestions to 5?
+				if i >= 4 {
+					s += itemStyle.Render("  ...") + "\n"
+					break
+				}
+			}
+		}
+
+		s += "\n" + infoStyle.Render("(esc to cancel, tab to autocomplete, enter to confirm)") + "\n"
 		if m.err != nil {
 			s += "\n" + errorStyle.Render(fmt.Sprintf("Error: %v", m.err)) + "\n"
 		}
