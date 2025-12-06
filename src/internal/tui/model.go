@@ -64,6 +64,7 @@ const (
 	StateIdle
 	StateInputPath
 	StateInputAtomic
+	StateOpenRepoPath
 	StateRepoSelection
 	StateRegisterRepoName
 	StateRegisterRepoPath
@@ -110,8 +111,9 @@ func InitialModel() Model {
 	descriptions := make(map[string]string)
 
 	if initialState == StateInit {
-		mainChoices = []string{"Init GitGrove", "Quit"}
+		mainChoices = []string{"Init GitGrove", "Open Repository", "Quit"}
 		descriptions["Init GitGrove"] = initialize.Description()
+		descriptions["Open Repository"] = "Open an existing GitGrove repository."
 	} else {
 		// Populate descriptions for initialized state
 		// Note: "Register Repo (Placeholder)" might not have a direct package link yet if we are not importing it,
@@ -164,6 +166,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.textInput.SetValue(cwd)
 					m.suggestions = nil // Reset suggestions
 					return m, nil
+				case "Open Repository":
+					m.state = StateOpenRepoPath
+					cwd, _ := os.Getwd()
+					m.textInput.SetValue(cwd)
+					m.textInput.Placeholder = "Path to existing GitGrove repository"
+					m.suggestions = nil
+					return m, nil
 				case "Quit":
 					m.quitting = true
 					return m, tea.Quit
@@ -180,6 +189,85 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
+
+	case StateOpenRepoPath:
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.Type {
+			case tea.KeyEnter:
+				path := m.textInput.Value()
+				if path == "" {
+					path, _ = os.Getwd()
+				}
+
+				// Validate if it is a GitGrove repo
+				err := groveUtil.IsGroveInitialized(path)
+				// IsGroveInitialized returns error if INITIALIZED (which is success for us)
+				// It returns nil if NOT initialized (failure for us)
+
+				if err != nil {
+					// Check if error message confirms initialization
+					if err.Error() == fmt.Sprintf("gitgrove is already initialized in %s", path) ||
+						(len(err.Error()) > 30 && err.Error()[:31] == "gitgrove is already initialized") {
+						// Success
+						m.path = path
+						m.repoInfo = path
+						m.state = StateIdle
+						m.choices = []string{"Register Repo (Placeholder)", "Prepare Merge", "Quit"}
+						m.cursor = 0
+						m.err = nil
+					} else {
+						// Some other error
+						m.err = err
+					}
+				} else {
+					// err == nil means not initialized
+					m.err = fmt.Errorf("path '%s' is not a GitGrove repository", path)
+				}
+				return m, nil
+
+			case tea.KeyEsc:
+				// Go back to Init menu
+				m.state = StateInit
+				m.err = nil
+				return m, nil
+
+			case tea.KeyTab:
+				if len(m.suggestions) > 0 {
+					m.textInput.SetValue(m.suggestions[m.suggestionCursor])
+					m.textInput.CursorEnd()
+					m.suggestions = nil
+					cwd, _ := os.Getwd()
+					m.suggestions = getSuggestions(cwd, m.textInput.Value())
+					m.suggestionCursor = 0
+				}
+				return m, nil
+			case tea.KeyUp:
+				if len(m.suggestions) > 0 {
+					m.suggestionCursor--
+					if m.suggestionCursor < 0 {
+						m.suggestionCursor = len(m.suggestions) - 1
+					}
+				}
+				return m, nil
+			case tea.KeyDown:
+				if len(m.suggestions) > 0 {
+					m.suggestionCursor++
+					if m.suggestionCursor >= len(m.suggestions) {
+						m.suggestionCursor = 0
+					}
+				}
+				return m, nil
+			}
+		}
+
+		m.textInput, cmd = m.textInput.Update(msg)
+
+		// Update suggestions
+		cwd, _ := os.Getwd()
+		m.suggestions = getSuggestions(cwd, m.textInput.Value())
+		m.suggestionCursor = 0
+		return m, cmd
 
 	case StateInputPath:
 		switch msg := msg.(type) {
@@ -508,6 +596,34 @@ func (m Model) View() string {
 					s += itemStyle.Render(fmt.Sprintf("%s %s", cursor, sugg)) + "\n"
 				}
 				// Limit suggestions to 5?
+				if i >= 4 {
+					s += itemStyle.Render("  ...") + "\n"
+					break
+				}
+			}
+		}
+
+		s += "\n" + infoStyle.Render("(esc to cancel, tab to autocomplete, enter to confirm)") + "\n"
+		if m.err != nil {
+			s += "\n" + errorStyle.Render(fmt.Sprintf("Error: %v", m.err)) + "\n"
+		}
+
+	case StateOpenRepoPath:
+		s += "Open Existing GitGrove Repository:\n\n"
+		s += inputStyle.Render(m.textInput.View())
+		s += "\n"
+
+		// Render suggestions (reuse logic)
+		if len(m.suggestions) > 0 {
+			s += "\nSuggestions:\n"
+			for i, sugg := range m.suggestions {
+				cursor := " "
+				if i == m.suggestionCursor {
+					cursor = ">"
+					s += selectedItemStyle.Render(fmt.Sprintf("%s %s", cursor, sugg)) + "\n"
+				} else {
+					s += itemStyle.Render(fmt.Sprintf("%s %s", cursor, sugg)) + "\n"
+				}
 				if i >= 4 {
 					s += itemStyle.Render("  ...") + "\n"
 					break
