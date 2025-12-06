@@ -7,17 +7,70 @@ import (
 	"path/filepath"
 	"strings"
 
+	gitUtil "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/util/git"
 	"github.com/kuchuk-borom-debbarma/GitGrove/src/model"
 )
 
 // IsGroveInitialized checks if the .gg directory and configuration file exist.
+// IsGroveInitialized checks if the .gg directory and configuration file exist.
 func IsGroveInitialized(path string) error {
+	// 1. Check local file system
 	configPath := filepath.Join(path, ".gg", "gg.json")
 	if _, err := os.Stat(configPath); err == nil {
 		return fmt.Errorf("gitgrove is already initialized in %s", path)
 	} else if !os.IsNotExist(err) {
 		return fmt.Errorf("error checking grove initialization: %w", err)
 	}
+
+	// 2. Check if we are in an orphan branch (gg/<trunk>/<repoName>)
+	// If so, check if .gg/gg.json exists in <trunk>
+	if err := gitUtil.IsGitRepository(path); err != nil {
+		// Not a git repo, so definitely not initialized
+		return nil
+	}
+
+	currentBranch, err := gitUtil.CurrentBranch(path)
+	if err != nil {
+		// Ignore error, maybe no commits yet
+		return nil
+	}
+
+	// Pattern: gg/<trunk>/<repoName>
+	parts := strings.Split(currentBranch, "/")
+	if len(parts) >= 3 && parts[0] == "gg" {
+		// Assuming trunk is the second part.
+		// NOTE: Trunk name might contain slashes? For now assuming no slashes in trunk or repo name,
+		// or strict mapping. The standard is gg/<trunk>/<repoName>.
+		// If trunk has slashes, this split might satisfy len >= 3 but be ambiguous.
+		// However, based on our generation logic: fmt.Sprintf("gg/%s/%s", currentBranch, repo.Name)
+		// We can try to reconstruct trunk.
+		// But wait, if trunk has slashes `feature/x`, then `gg/feature/x/repo`.
+		// Then parts will be ["gg", "feature", "x", "repo"].
+		// We need to know where trunk ends.
+		// Without knowing repo name, it is hard.
+		// BUT, we just need to find *A* branch that has .gg/gg.json.
+		// Let's assume the trunk logic is simple for now or try to match available branches.
+		// Simpler approach: check if parts[1] is a valid ref that has .gg/gg.json?
+		// Or assume no slashes in trunk for MVP or accept limitation.
+		// Let's assume trunk might correspond to everything between gg/ and /<last_part>.
+		// Reconstruct trunk candidate?
+		// Actually, if we are in `gg/master/serviceA`, trunk is `master`.
+		// If `gg/feature/x/serviceA`, trunk is `feature/x`.
+		// We can iterate over possible split points?
+		// Given `gg/A/B/C`, trunk could be `A`, `A/B`.
+
+		// Let's try to detect if we can find .gg/gg.json in any prefix combination.
+		// Start from parts[1] (index 1). End at len(parts)-2 (inclusive).
+		// Because last part is repoName.
+		for i := 1; i < len(parts)-1; i++ {
+			trunkCandidate := strings.Join(parts[1:i+1], "/")
+			exists, err := gitUtil.FileExistsInBranch(path, trunkCandidate, ".gg/gg.json")
+			if err == nil && exists {
+				return fmt.Errorf("gitgrove is already initialized (orphan branch of %s)", trunkCandidate)
+			}
+		}
+	}
+
 	return nil
 }
 

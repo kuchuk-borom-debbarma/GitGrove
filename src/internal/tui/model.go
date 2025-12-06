@@ -83,9 +83,11 @@ func InitialModel() Model {
 
 	initialState := StateInit
 	if err := groveUtil.IsGroveInitialized(cwd); err != nil {
-		initialState = StateInit
-	} else {
+		// IsGroveInitialized returns error if already initialized
 		initialState = StateIdle
+	} else {
+		// No error means not initialized
+		initialState = StateInit
 	}
 
 	ti := textinput.New()

@@ -43,9 +43,15 @@ func RegisterRepo(repos []model.GGRepo, ggRepoPath string) error {
 		return err
 	}
 
+	// Get current branch
+	currentBranch, err := gitUtil.CurrentBranch(ggRepoPath)
+	if err != nil {
+		return fmt.Errorf("failed to get current branch: %w", err)
+	}
+
 	// If all good, proceed creating the orphan branch
 	for _, repo := range repos {
-		branchName := fmt.Sprintf("gg/%s", repo.Name)
+		branchName := fmt.Sprintf("gg/%s/%s", currentBranch, repo.Name)
 		if err := gitUtil.SubtreeSplit(ggRepoPath, repo.Path, branchName); err != nil {
 			return fmt.Errorf("failed to create subtree split for %s: %w", repo.Name, err)
 		}

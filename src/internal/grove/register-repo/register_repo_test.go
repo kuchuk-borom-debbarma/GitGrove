@@ -96,14 +96,30 @@ func TestRegisterRepo(t *testing.T) {
 		t.Errorf("Repo 'service-a' not found in gg.json")
 	}
 
+	// Get current branch for verification
+	currentBranch, err := exec.Command("git", "-C", repoPath, "branch", "--show-current").Output()
+	if err != nil {
+		t.Fatalf("Failed to get current branch: %v", err)
+	}
+	currentBranchStr := string(currentBranch)
+	// Remove newline
+	if len(currentBranchStr) > 0 {
+		currentBranchStr = currentBranchStr[:len(currentBranchStr)-1]
+	}
+
 	// Verify branch creation
-	cmd = exec.Command("git", "branch", "--list", "gg/service-a")
+	expectedBranch := "gg/service-a"
+	if len(currentBranchStr) > 0 {
+		expectedBranch = "gg/" + currentBranchStr + "/service-a"
+	}
+
+	cmd = exec.Command("git", "branch", "--list", expectedBranch)
 	cmd.Dir = repoPath
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("Failed to list branches: %v", err)
 	}
 	if string(output) == "" {
-		t.Errorf("Branch 'gg/service-a' was not created")
+		t.Errorf("Branch '%s' was not created", expectedBranch)
 	}
 }

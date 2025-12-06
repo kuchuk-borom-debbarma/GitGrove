@@ -78,8 +78,8 @@ func TestPrepareMerge_FromOrphanBranch(t *testing.T) {
 		t.Fatalf("Failed to commit gg.json: %v", err)
 	}
 
-	// 3. Checkout Orphan Branch
-	orphanBranch := "gg/service-a"
+	// 3. Checkout Orphan Branch: gg/main/service-a
+	orphanBranch := "gg/main/service-a"
 	if err := gitUtil.Checkout(repoPath, orphanBranch); err != nil {
 		t.Fatalf("Failed to checkout orphan branch: %v", err)
 	}
@@ -92,13 +92,21 @@ func TestPrepareMerge_FromOrphanBranch(t *testing.T) {
 	if err := os.WriteFile(orphanMainGo, []byte(newContent), 0644); err != nil {
 		t.Fatalf("Failed to update file in orphan: %v", err)
 	}
-	if err := gitUtil.Commit(repoPath, []string{"main.go"}, "Update main.go in orphan"); err != nil {
+	// Add .gg/trunk to ensure it gets removed
+	if err := os.MkdirAll(filepath.Join(repoPath, ".gg"), 0755); err != nil {
+		t.Fatalf("Failed to create .gg dir in orphan: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoPath, ".gg", "trunk"), []byte("should be removed"), 0644); err != nil {
+		t.Fatalf("Failed to create .gg/trunk in orphan: %v", err)
+	}
+
+	if err := gitUtil.Commit(repoPath, []string{"main.go", ".gg/trunk"}, "Update main.go and add .gg/trunk in orphan"); err != nil {
 		t.Fatalf("Failed to commit in orphan: %v", err)
 	}
 
 	// 5. Run PrepareMerge (detect context)
-	// We are on "gg/service-a".
-	// The function should detect this, switch to trunk, create branch, and merge.
+	// We are on "gg/main/service-a".
+	// The function should detect trunk="main" and repo="service-a".
 	if err := PrepareMerge(repoPath, ""); err != nil {
 		t.Fatalf("PrepareMerge failed: %v", err)
 	}
@@ -121,5 +129,11 @@ func TestPrepareMerge_FromOrphanBranch(t *testing.T) {
 	}
 	if string(content) != newContent {
 		t.Errorf("Content mismatch. Expected:\n%s\nGot:\n%s", newContent, string(content))
+	}
+
+	// Verify .gg/trunk is NOT present
+	trunkFile := filepath.Join(repoPath, ".gg", "trunk")
+	if _, err := os.Stat(trunkFile); !os.IsNotExist(err) {
+		t.Errorf("Expected .gg/trunk to be removed, but it exists")
 	}
 }

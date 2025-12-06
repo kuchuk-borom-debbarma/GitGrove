@@ -115,3 +115,19 @@ func CreateBranch(repoPath string, branchName string) error {
 	}
 	return nil
 }
+
+// FileExistsInBranch checks if a file exists in a specific branch.
+func FileExistsInBranch(repoPath string, branchName string, filePath string) (bool, error) {
+	// git cat-file -e <branch>:<file>
+	// -e exits with 0 if file exists, 1 if not (or malformed)
+	object := fmt.Sprintf("%s:%s", branchName, filePath)
+	cmd := exec.Command("git", "cat-file", "-e", object)
+	cmd.Dir = repoPath
+	if err := cmd.Run(); err != nil {
+		// If exit code is 1, it might mean file not found.
+		// We should probably check if it's strictly "not found" vs other errors,
+		// but typically cat-file -e is sufficient.
+		return false, nil
+	}
+	return true, nil
+}
