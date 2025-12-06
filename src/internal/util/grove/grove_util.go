@@ -129,22 +129,30 @@ func LoadConfig(ggRootPath string) (*GGConfig, error) {
 // RegisterRepoInConfig adds new repositories to the gg.json configuration.
 // It performs validation to ensure no name/path conflicts or nested repositories.
 func RegisterRepoInConfig(ggRootPath string, newRepos []model.GGRepo) error {
-	configPath := filepath.Join(ggRootPath, ".gg", "gg.json")
-
 	// Read existing config
 	config, err := LoadConfig(ggRootPath)
 	if err != nil {
 		return err
 	}
 
-	// Validate and add new repos
+	if err := ValidateRepoRegistration(ggRootPath, config, newRepos); err != nil {
+		return err
+	}
+
+	return AddReposToConfig(ggRootPath, newRepos)
+}
+
+// ValidateRepoRegistration checks if the new repos can be safely added to the config.
+func ValidateRepoRegistration(ggRootPath string, config *GGConfig, newRepos []model.GGRepo) error {
 	for _, newRepo := range newRepos {
-		// Normalize path (remove ./, resolve .., remove trailing slash)
-		newRepo.Path = filepath.Clean(newRepo.Path)
+		// Normalize path (note: we do this check on a copy or assuming caller cleans it?
+		// RegisterRepoInConfig does verify, but caller of Validate might modify newRepo.Path in place?
+		// Strings are immutable, struct fields are not.
+		// Let's clean it here for validation purposes.
+		cleanedPath := filepath.Clean(newRepo.Path)
 
 		// Validation: Check if path is within root
-		absPath := filepath.Join(ggRootPath, newRepo.Path)
-		// Clean to resolve ..
+		absPath := filepath.Join(ggRootPath, cleanedPath)
 		absPath = filepath.Clean(absPath)
 
 		relCheck, err := filepath.Rel(ggRootPath, absPath)
@@ -162,22 +170,38 @@ func RegisterRepoInConfig(ggRootPath string, newRepos []model.GGRepo) error {
 
 		// Check for path conflict and nested repositories
 		for _, existingRepo := range config.Repositories {
-			if existingRepo.Path == newRepo.Path {
-				return fmt.Errorf("repository with path '%s' already exists (name: %s)", newRepo.Path, existingRepo.Name)
+			if existingRepo.Path == cleanedPath {
+				return fmt.Errorf("repository with path '%s' already exists (name: %s)", cleanedPath, existingRepo.Name)
 			}
 
 			// Check for nesting
-			rel, err := filepath.Rel(existingRepo.Path, newRepo.Path)
+			rel, err := filepath.Rel(existingRepo.Path, cleanedPath)
 			if err == nil && !strings.HasPrefix(rel, "..") {
-				return fmt.Errorf("cannot register '%s' inside existing repo '%s'", newRepo.Path, existingRepo.Path)
+				return fmt.Errorf("cannot register '%s' inside existing repo '%s'", cleanedPath, existingRepo.Path)
 			}
 
-			rel, err = filepath.Rel(newRepo.Path, existingRepo.Path)
+			rel, err = filepath.Rel(cleanedPath, existingRepo.Path)
 			if err == nil && !strings.HasPrefix(rel, "..") {
-				return fmt.Errorf("cannot register '%s' which contains existing repo '%s'", newRepo.Path, existingRepo.Path)
+				return fmt.Errorf("cannot register '%s' which contains existing repo '%s'", cleanedPath, existingRepo.Path)
 			}
 		}
+	}
+	return nil
+}
 
+// AddReposToConfig adds the repositories to gg.json without further validation (assumes validation passed).
+func AddReposToConfig(ggRootPath string, newRepos []model.GGRepo) error {
+	configPath := filepath.Join(ggRootPath, ".gg", "gg.json")
+
+	// Read existing config
+	config, err := LoadConfig(ggRootPath)
+	if err != nil {
+		return err
+	}
+
+	for _, newRepo := range newRepos {
+		// Ensure path is cleaned before saving
+		newRepo.Path = filepath.Clean(newRepo.Path)
 		config.Repositories[newRepo.Name] = newRepo
 	}
 

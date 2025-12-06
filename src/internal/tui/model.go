@@ -307,9 +307,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if path == "" {
 					path, _ = os.Getwd()
 				}
+
+				// Check if already initialized BEFORE moving to next state
+				if err := groveUtil.IsGroveInitialized(path); err != nil {
+					m.err = err
+					return m, nil
+				}
+
 				m.path = path
 				m.state = StateInputAtomic
 				return m, nil
+
+				// ... (skipping to View)
+
 			case tea.KeyEsc:
 				// Go back to Init menu
 				m.state = StateInit
@@ -670,6 +680,9 @@ func (m Model) View() string {
 
 	case StateInputAtomic:
 		s += "Automatically append [RepoName] to commit messages? [y/N]:"
+		if m.err != nil {
+			s += "\n" + errorStyle.Render(fmt.Sprintf("Error: %v", m.err)) + "\n"
+		}
 
 	case StateIdle:
 		s += successStyle.Render("Welcome to GitGrove!") + "\n\n"

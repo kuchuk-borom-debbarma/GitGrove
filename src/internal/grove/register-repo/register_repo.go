@@ -45,9 +45,14 @@ func RegisterRepo(repos []model.GGRepo, ggRepoPath string) error {
 		return fmt.Errorf("gitgrove is not initialized in %s", ggRepoPath)
 	}
 
-	// Load repos from gg.json and check if there is any name or path conflict
-	// Update gg.json
-	if err := groveUtil.RegisterRepoInConfig(ggRepoPath, repos); err != nil {
+	// Load repos from gg.json (needed for validation)
+	config, err := groveUtil.LoadConfig(ggRepoPath)
+	if err != nil {
+		return err
+	}
+
+	// Validate BEFORE doing any git operations
+	if err := groveUtil.ValidateRepoRegistration(ggRepoPath, config, repos); err != nil {
 		return err
 	}
 
@@ -63,6 +68,11 @@ func RegisterRepo(repos []model.GGRepo, ggRepoPath string) error {
 		if err := gitUtil.SubtreeSplit(ggRepoPath, repo.Path, branchName); err != nil {
 			return fmt.Errorf("failed to create subtree split for %s: %w", repo.Name, err)
 		}
+	}
+
+	// ONLY if git operations succeed, update gg.json
+	if err := groveUtil.AddReposToConfig(ggRepoPath, repos); err != nil {
+		return fmt.Errorf("failed to update config after branch creation: %w", err)
 	}
 
 	return nil
