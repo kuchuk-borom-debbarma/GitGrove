@@ -10,6 +10,6 @@ mkdir -p "$BUILD_DIR"
 
 # Build from the src directory
 cd "$PROJECT_ROOT/src"
-go build -o "$BUILD_DIR/gg" core/cli/main.go
+go build -o "$BUILD_DIR/gg" cmd/gitgrove/main.go
 
 echo "Build complete: $BUILD_DIR/gg"
