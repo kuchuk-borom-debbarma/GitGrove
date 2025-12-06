@@ -8,8 +8,8 @@ BUILD_DIR="$PROJECT_ROOT/build"
 echo "Building gitgrove as gg..."
 mkdir -p "$BUILD_DIR"
 
-# Build from the cli directory
-cd "$PROJECT_ROOT/cli"
-go build -o "$BUILD_DIR/gg" ./cmd/main.go
+# Build from the src directory
+cd "$PROJECT_ROOT/src"
+go build -o "$BUILD_DIR/gg" cmd/gitgrove/main.go
 
 echo "Build complete: $BUILD_DIR/gg"
