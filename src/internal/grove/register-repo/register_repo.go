@@ -51,6 +51,11 @@ func RegisterRepo(repos []model.GGRepo, ggRepoPath string) error {
 		return err
 	}
 
+	// Clean paths to ensure consistency across validation, git operations, and config storage
+	for i := range repos {
+		repos[i].Path = filepath.Clean(repos[i].Path)
+	}
+
 	// Validate BEFORE doing any git operations
 	if err := groveUtil.ValidateRepoRegistration(ggRepoPath, config, repos); err != nil {
 		return err

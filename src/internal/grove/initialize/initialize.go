@@ -32,6 +32,7 @@ func Description() string {
 //     as the root of the GitGrove system.
 //     as the root of the GitGrove system.
 func Initialize(path string, atomicCommit bool) error {
+	path = filepath.Clean(path)
 	//Validations
 	//Validate if its a valid git repository
 	if err := gitUtil.IsGitRepository(path); err != nil {

@@ -23,6 +23,7 @@ func Description() string {
 
 // PrepareMerge handles the logic for preparing a merge from an orphan branch to the trunk.
 func PrepareMerge(ggRepoPath string, repoNameArg string) error {
+	ggRepoPath = filepath.Clean(ggRepoPath)
 	// 1. Context Detection
 	currentBranch, err := gitUtil.CurrentBranch(ggRepoPath)
 	if err != nil {
