@@ -17,7 +17,7 @@ The process begins by establishing the "Main" branch as the source of truth (The
 ## 2. Registration (The Split)
 When a folder is registered as a "repo," GG creates a parallel history for it.
 
-*   **Command:** `gg register serviceA ./backend/services/serviceA`
+*   **Command:** (TUI Only) `Register Repo` selection.
 *   **Action:**
     *   **Orphan Creation:** GG scans the history of the target folder.
     *   **Path Translation:** It uses `git subtree split` to create a new orphan branch (e.g., `gg/main/serviceA`).
@@ -30,7 +30,7 @@ When a folder is registered as a "repo," GG creates a parallel history for it.
 ## 3. The Development Loop (Independent Tracking)
 Developers work inside these isolated orphan branches. This provides the "Per-Repo Commit Tracking" feature.
 
-*   **Command:** `gg checkout serviceA`
+*   **Command:** `git checkout <orphan-branch-name>` (e.g., `git checkout gg/main/serviceA`)
 *   **Experience:**
     *   The developer sees the project at the root level.
     *   They commit changes normally (`git add`, `git commit`).
@@ -89,7 +89,7 @@ When a developer runs `gg commit`, the tool analyzes the staged files before Git
 
 ### Scenario A: The Clean Commit
 *   **User Action:** Modifies 3 files inside `./backend/services/serviceA`.
-*   **Command:** `gg commit -m "Fix login bug"`
+*   **Command:** `git commit -m "Fix login bug"`
 *   **GGC Logic:**
     1.  Detects all files belong to the registered `serviceA` path.
     2.  **Auto-Tag:** Modifies the message to `[serviceA] Fix login bug`.
@@ -97,7 +97,7 @@ When a developer runs `gg commit`, the tool analyzes the staged files before Git
 
 ### Scenario B: The Mixed Commit (The Block)
 *   **User Action:** Modifies files in `serviceA` AND `frontend/ui`.
-*   **Command:** `gg commit -m "Update login"`
+*   **Command:** `git commit -m "Update login"`
 *   **GGC Logic:**
     1.  Detects paths from two distinct registered repos.
     2.  **BLOCK:** 🛑 Error: "Atomic Commit Violation. You are attempting to commit to 'serviceA' and 'frontend' simultaneously. Please split your commits."
@@ -106,7 +106,7 @@ When a developer runs `gg commit`, the tool analyzes the staged files before Git
 ## 3. Advanced Feature: Repo Bounding (Active Scope)
 This allows a developer to "Lock In" their focus, ensuring they don't accidentally touch other parts of the codebase.
 
-*   **Command:** `gg scope serviceA`
+*   **Command:** (Proposed/Future) `gg scope serviceA`
 *   **Effect:**
     *   GGC enters "Strict Mode" for `serviceA`.
     *   If you try to commit anything outside of `./backend/services/serviceA`, GGC throws an error immediately—even if you haven't touched ServiceA files.

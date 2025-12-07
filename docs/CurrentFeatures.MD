@@ -17,7 +17,7 @@ Establishes the current branch as the source of truth (The Trunk) for the monore
 
 Registers a folder as a logical "repository" within the monorepo, creating an isolated history for it.
 
-*   **Command**: `gg register <name> <path>`
+*   **Command**: (TUI Only) Select "Register Repo" from the main menu.
 *   **Functionality**:
     *   **Validation**:
         *   Ensures GitGrove is initialized.
