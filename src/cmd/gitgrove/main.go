@@ -57,8 +57,15 @@ func main() {
 			os.Exit(1)
 		case "init":
 			cwd, _ := os.Getwd()
-			// Default CLI init to no atomic commit enforcement for now, or TODO: add flag
-			if err := initialize.Initialize(cwd, false); err != nil {
+			atomic := false
+			// Simple flag parsing for init command
+			for _, arg := range os.Args[2:] {
+				if arg == "--atomic" {
+					atomic = true
+				}
+			}
+
+			if err := initialize.Initialize(cwd, atomic); err != nil {
 				fmt.Fprintf(os.Stderr, "Error initializing GitGrove: %v\n", err)
 				os.Exit(1)
 			}
