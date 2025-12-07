@@ -43,10 +43,12 @@ func Initialize(path string, atomicCommit bool) error {
 	// Validate git-grove is in PATH (required for hooks) ONLY if atomic commit is requested
 	if atomicCommit {
 		if _, err := exec.LookPath("git-grove"); err != nil {
-			return fmt.Errorf("git-grove not found in PATH.\n"+
-				"Atomic Commit requires 'git-grove' to be executable globally.\n"+
-				"Please add it to your PATH or create a symlink, e.g.:\n"+
-				"  sudo ln -s %s /usr/local/bin/git-grove", os.Args[0])
+			if _, err2 := exec.LookPath("gg"); err2 != nil {
+				return fmt.Errorf("git-grove (or gg) not found in PATH.\n"+
+					"Atomic Commit requires 'git-grove' or 'gg' to be executable globally.\n"+
+					"Please add it to your PATH or create a symlink, e.g.:\n"+
+					"  sudo ln -s %s /usr/local/bin/git-grove", os.Args[0])
+			}
 		}
 	}
 
@@ -81,15 +83,19 @@ func installHooks(path string) error {
 # GitGrove Pre-commit Hook
 # This hook ensures atomic commits across the GitGrove monorepo.
 
-# Check if git-grove is in PATH
-if ! command -v git-grove >/dev/null 2>&1; then
+# Check if git-grove or gg is in PATH
+if command -v git-grove >/dev/null 2>&1; then
+    GG_CMD=git-grove
+elif command -v gg >/dev/null 2>&1; then
+    GG_CMD=gg
+else
     echo "Warning: git-grove not found in PATH. Skipping atomic commit enforcement."
     exit 0
 fi
 
 # Execute git-grove hook
 # We capture output to check for errors, but also allow stdout to pass through if needed
-OUTPUT=$(git-grove hook pre-commit 2>&1)
+OUTPUT=$($GG_CMD hook pre-commit 2>&1)
 EXIT_CODE=$?
 
 if [ $EXIT_CODE -ne 0 ]; then
@@ -110,8 +116,14 @@ fi
 # GitGrove Prepare-commit-msg Hook
 
 if command -v git-grove >/dev/null 2>&1; then
-    git-grove hook prepare-commit-msg "$1" "$2" "$3"
+    GG_CMD=git-grove
+elif command -v gg >/dev/null 2>&1; then
+    GG_CMD=gg
+else
+    exit 0
 fi
+
+$GG_CMD hook prepare-commit-msg "$1" "$2" "$3"
 `
 	if err := os.WriteFile(prepareMsgHookPath, []byte(prepareMsgContent), 0755); err != nil {
 		return fmt.Errorf("failed to create prepare-commit-msg hook: %w", err)
