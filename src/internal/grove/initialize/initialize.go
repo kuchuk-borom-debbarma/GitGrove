@@ -3,6 +3,7 @@ package initialize
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	gitUtil "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/util/git"
@@ -38,6 +39,17 @@ func Initialize(path string, atomicCommit bool) error {
 	if err := gitUtil.IsGitRepository(path); err != nil {
 		return err
 	}
+
+	// Validate git-grove is in PATH (required for hooks) ONLY if atomic commit is requested
+	if atomicCommit {
+		if _, err := exec.LookPath("git-grove"); err != nil {
+			return fmt.Errorf("git-grove not found in PATH.\n"+
+				"Atomic Commit requires 'git-grove' to be executable globally.\n"+
+				"Please add it to your PATH or create a symlink, e.g.:\n"+
+				"  sudo ln -s %s /usr/local/bin/git-grove", os.Args[0])
+		}
+	}
+
 	//Validate that there is no existing .gg/gg.json
 	if err := groveUtil.IsGroveInitialized(path); err != nil {
 		return err
