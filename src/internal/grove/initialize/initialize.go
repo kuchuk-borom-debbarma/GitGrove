@@ -44,10 +44,13 @@ func Initialize(path string, atomicCommit bool) error {
 	if atomicCommit {
 		if _, err := exec.LookPath("git-grove"); err != nil {
 			if _, err2 := exec.LookPath("gg"); err2 != nil {
+				absPath, _ := filepath.Abs(os.Args[0])
 				return fmt.Errorf("git-grove (or gg) not found in PATH.\n"+
 					"Atomic Commit requires 'git-grove' or 'gg' to be executable globally.\n"+
 					"Please add it to your PATH or create a symlink, e.g.:\n"+
-					"  sudo ln -s %s /usr/local/bin/git-grove", os.Args[0])
+					"  sudo ln -s %s /usr/local/bin/git-grove\n"+
+					"  OR\n"+
+					"  sudo ln -s %s /usr/local/bin/gg", absPath, absPath)
 			}
 		}
 	}
