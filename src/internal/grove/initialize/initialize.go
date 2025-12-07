@@ -54,7 +54,8 @@ func Initialize(path string, atomicCommit bool) error {
 	}
 
 	//Commit this configuration to the current branch
-	if err := gitUtil.Commit(path, []string{".gg/gg.json"}, "Initialize GitGrove"); err != nil {
+	// Use CommitNoVerify to prevent hook failure during initialization if the global binary is mismatched
+	if err := gitUtil.CommitNoVerify(path, []string{".gg/gg.json"}, "Initialize GitGrove"); err != nil {
 		return err
 	}
 
@@ -66,10 +67,25 @@ func installHooks(path string) error {
 	preCommitHookPath := filepath.Join(path, ".git", "hooks", "pre-commit")
 	preCommitContent := `#!/bin/sh
 # GitGrove Pre-commit Hook
-if command -v git-grove >/dev/null 2>&1; then
-    git-grove hook pre-commit
-else
-    echo "Warning: git-grove not found, skipping context checks."
+# This hook ensures atomic commits across the GitGrove monorepo.
+
+# Check if git-grove is in PATH
+if ! command -v git-grove >/dev/null 2>&1; then
+    echo "Warning: git-grove not found in PATH. Skipping atomic commit enforcement."
+    exit 0
+fi
+
+# Execute git-grove hook
+# We capture output to check for errors, but also allow stdout to pass through if needed
+OUTPUT=$(git-grove hook pre-commit 2>&1)
+EXIT_CODE=$?
+
+if [ $EXIT_CODE -ne 0 ]; then
+    echo "GitGrove Pre-commit Hook Failed:"
+    echo "$OUTPUT"
+    echo ""
+    echo "Tip: Ensure you have the latest version of git-grove installed and in your PATH."
+    exit $EXIT_CODE
 fi
 `
 	if err := os.WriteFile(preCommitHookPath, []byte(preCommitContent), 0755); err != nil {
@@ -80,6 +96,7 @@ fi
 	prepareMsgHookPath := filepath.Join(path, ".git", "hooks", "prepare-commit-msg")
 	prepareMsgContent := `#!/bin/sh
 # GitGrove Prepare-commit-msg Hook
+
 if command -v git-grove >/dev/null 2>&1; then
     git-grove hook prepare-commit-msg "$1" "$2" "$3"
 fi

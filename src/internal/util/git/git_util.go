@@ -46,6 +46,27 @@ func Commit(repoPath string, files []string, message string) error {
 	return nil
 }
 
+// CommitNoVerify stages the given files and commits them with the provided message, bypassing hooks.
+func CommitNoVerify(repoPath string, files []string, message string) error {
+	repoPath = filepath.Clean(repoPath)
+	// Stage files
+	args := append([]string{"add"}, files...)
+	cmd := exec.Command("git", args...)
+	cmd.Dir = repoPath
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git add failed: %s: %w", string(output), err)
+	}
+
+	// Commit with --no-verify
+	cmd = exec.Command("git", "commit", "--no-verify", "-m", message)
+	cmd.Dir = repoPath
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git commit --no-verify failed: %s: %w", string(output), err)
+	}
+
+	return nil
+}
+
 // SubtreeSplit creates a new branch using git subtree split.
 func SubtreeSplit(repoPath string, prefix string, branchName string) error {
 	repoPath = filepath.Clean(repoPath)
