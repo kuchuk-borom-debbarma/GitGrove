@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 
 	gitUtil "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/util/git"
 	groveUtil "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/util/grove"
@@ -45,12 +46,7 @@ func Initialize(path string, atomicCommit bool) error {
 		if _, err := exec.LookPath("git-grove"); err != nil {
 			if _, err2 := exec.LookPath("gg"); err2 != nil {
 				absPath, _ := filepath.Abs(os.Args[0])
-				return fmt.Errorf("git-grove (or gg) not found in PATH.\n"+
-					"Atomic Commit requires 'git-grove' or 'gg' to be executable globally.\n"+
-					"Please add it to your PATH or create a symlink, e.g.:\n"+
-					"  sudo ln -s %s /usr/local/bin/git-grove\n"+
-					"  OR\n"+
-					"  sudo ln -s %s /usr/local/bin/gg", absPath, absPath)
+				return fmt.Errorf(getPathErrorMsg(absPath))
 			}
 		}
 	}
@@ -77,6 +73,25 @@ func Initialize(path string, atomicCommit bool) error {
 	}
 
 	return nil
+}
+
+func getPathErrorMsg(absPath string) string {
+	baseMsg := "git-grove (or gg) not found in PATH.\n" +
+		"Atomic Commit requires 'git-grove' or 'gg' to be executable globally.\n"
+
+	if runtime.GOOS == "windows" {
+		return baseMsg + fmt.Sprintf("Please add it to your PATH using PowerShell:\n"+
+			"  [Environment]::SetEnvironmentVariable(\"Path\", $env:Path + \";%s\", [EnvironmentVariableTarget]::User)", absPath)
+	}
+
+	// Default for Linux/Mac
+	return baseMsg + fmt.Sprintf("Please add it to your PATH:\n"+
+		"  echo 'export PATH=$PATH:%s' >> ~/.zshrc  # or ~/.bashrc\n"+
+		"  source ~/.zshrc\n"+
+		"OR create a symlink:\n"+
+		"  sudo ln -s %s /usr/local/bin/git-grove\n"+
+		"  OR\n"+
+		"  sudo ln -s %s /usr/local/bin/gg", filepath.Dir(absPath), absPath, absPath)
 }
 
 func installHooks(path string) error {
