@@ -71,6 +71,8 @@ const (
 	StateRepoSelection
 	StateRegisterRepoName
 	StateRegisterRepoPath
+	StateViewRepos
+	StateRepoCheckoutSelection
 )
 
 type Model struct {
@@ -143,8 +145,8 @@ func InitialModel() Model {
 	ti.Width = 50
 	ti.SetValue(cwd)
 
-	// Main menu choices for initialized repo
-	mainChoices := []string{"Register Repo", "Prepare Merge", "Quit"}
+	// Main menu choices based on state
+	var mainChoices []string
 	descriptions := make(map[string]string)
 
 	if initialState == StateInit {
@@ -152,14 +154,15 @@ func InitialModel() Model {
 		descriptions["Init GitGrove"] = initialize.Description()
 		descriptions["Open Repository"] = "Open an existing GitGrove repository."
 	} else {
-		// Populate descriptions for initialized state
-		// Note: "Register Repo (Placeholder)" might not have a direct package link yet if we are not importing it,
-		// but we can import registerrepo for Description().
-		// We'll need to add imports to model.go
-		descriptions["Register Repo"] = registerrepo.Description()
-		// Actually use package description if imported
-		// descriptions["Register Repo (Placeholder)"] = registerrepo.Description()
-		descriptions["Prepare Merge"] = preparemerge.Description()
+		if isOrphan {
+			mainChoices = []string{"Prepare Merge", "Quit"}
+			descriptions["Prepare Merge"] = preparemerge.Description()
+		} else {
+			mainChoices = []string{"View Repos", "Register Repo", "Checkout Repo Branch", "Quit"}
+			descriptions["View Repos"] = "View list of registered repositories."
+			descriptions["Register Repo"] = registerrepo.Description()
+			descriptions["Checkout Repo Branch"] = "Checkout to an orphan branch for a specific repository."
+		}
 	}
 	descriptions["Quit"] = "Exit the application."
 
@@ -285,11 +288,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.path = path
 
 						// Get context info
+						// Get context info
 						currentBranch, _ := gitUtil.CurrentBranch(path)
-						m.repoInfo = getTrunkContextInfo(path, currentBranch)
+						if len(currentBranch) > 3 && currentBranch[:3] == "gg/" {
+							m.isOrphan = true
+							parts := strings.Split(currentBranch, "/")
+							if len(parts) >= 3 {
+								orphanRepoName := parts[len(parts)-1]
+								trunkBranch := strings.Join(parts[1:len(parts)-1], "/")
+								m.repoInfo = fmt.Sprintf("Orphan Branch: %s (Trunk: %s)", orphanRepoName, trunkBranch)
+								m.orphanRepoName = orphanRepoName
+								m.trunkBranch = trunkBranch
+							} else {
+								m.repoInfo = fmt.Sprintf("Orphan Branch: %s", currentBranch)
+							}
+							m.choices = []string{"Prepare Merge", "Quit"}
+						} else {
+							m.isOrphan = false
+							m.repoInfo = getTrunkContextInfo(path, currentBranch)
+							m.choices = []string{"View Repos", "Register Repo", "Checkout Repo Branch", "Quit"}
+						}
 
 						m.state = StateIdle
-						m.choices = []string{"Register Repo", "Prepare Merge", "Quit"}
 						m.cursor = 0
 						m.err = nil
 					} else {
@@ -430,8 +450,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.err = err
 				} else {
 					m.repoInfo = "GitGrove Initialized at " + m.path
+					m.isOrphan = false
 					m.state = StateIdle
-					m.choices = []string{"Register Repo", "Prepare Merge", "Quit"}
+					m.choices = []string{"View Repos", "Register Repo", "Checkout Repo Branch", "Quit"}
 					m.cursor = 0
 				}
 				return m, nil
@@ -440,8 +461,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.err = err
 				} else {
 					m.repoInfo = "GitGrove Initialized at " + m.path
+					m.isOrphan = false
 					m.state = StateIdle
-					m.choices = []string{"Register Repo", "Prepare Merge", "Quit"}
+					m.choices = []string{"View Repos", "Register Repo", "Checkout Repo Branch", "Quit"}
 					m.cursor = 0
 				}
 				return m, nil
@@ -475,9 +497,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 					// If orphan -> prepare merge immediately
 					if len(branch) > 3 && branch[:3] == "gg/" {
-						// Extract repo name? Actually preparemerge handles detection too if we pass empty repoName?
-						// Wait, PrepareMerge(cwd, repoName)
-						// If we are in orphan branch, we call PrepareMerge(cwd, "").
 						if err := preparemerge.PrepareMerge(m.path, ""); err != nil {
 							m.err = err
 						} else {
@@ -486,8 +505,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						}
 						return m, nil
 					}
+					// If not orphan, something is weird because this option should only be available in orphan state.
+					m.err = fmt.Errorf("prepare merge only available in orphan branches")
+					return m, nil
 
-					// If trunk -> go to RepoSelection
+				case "View Repos":
 					config, err := groveUtil.LoadConfig(m.path)
 					if err != nil {
 						m.err = err
@@ -497,13 +519,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					for name := range config.Repositories {
 						repos = append(repos, name)
 					}
+					sort.Strings(repos)
+					m.repoChoices = repos
+					m.state = StateViewRepos
+					return m, nil
+
+				case "Checkout Repo Branch":
+					config, err := groveUtil.LoadConfig(m.path)
+					if err != nil {
+						m.err = err
+						return m, nil
+					}
+					var repos []string
+					for name := range config.Repositories {
+						repos = append(repos, name)
+					}
+					sort.Strings(repos)
 					m.repoChoices = repos
 					m.repoCursor = 0
-					m.state = StateRepoSelection
+					m.state = StateRepoCheckoutSelection
 					if len(repos) == 0 {
-						// Maybe show error or empty state?
 						m.err = fmt.Errorf("no repositories found")
 					}
+					return m, nil
 
 				case "Quit":
 					m.quitting = true
@@ -633,6 +671,64 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.err = err
 					} else {
 						m.repoInfo = fmt.Sprintf("Success: Prepare-merge branch created for %s", repoName)
+						m.state = StateIdle
+					}
+				}
+			}
+		}
+
+	case StateViewRepos:
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "esc", "enter", "q":
+				m.state = StateIdle
+			case "down", "j":
+				m.repoCursor++
+				if m.repoCursor >= len(m.repoChoices) {
+					m.repoCursor = 0
+				}
+			case "up", "k":
+				m.repoCursor--
+				if m.repoCursor < 0 {
+					m.repoCursor = len(m.repoChoices) - 1
+				}
+			}
+		}
+
+	case StateRepoCheckoutSelection:
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "esc":
+				m.state = StateIdle
+			case "down", "j":
+				m.repoCursor++
+				if m.repoCursor >= len(m.repoChoices) {
+					m.repoCursor = 0
+				}
+			case "up", "k":
+				m.repoCursor--
+				if m.repoCursor < 0 {
+					m.repoCursor = len(m.repoChoices) - 1
+				}
+			case "enter":
+				if len(m.repoChoices) > 0 {
+					repoName := m.repoChoices[m.repoCursor]
+					currentBranch, err := gitUtil.CurrentBranch(m.path)
+					if err != nil {
+						m.err = err
+						return m, nil
+					}
+					targetBranch := fmt.Sprintf("gg/%s/%s", currentBranch, repoName)
+					if err := gitUtil.Checkout(m.path, targetBranch); err != nil {
+						m.err = fmt.Errorf("failed to checkout %s: %v", targetBranch, err)
+					} else {
+						m.isOrphan = true
+						m.orphanRepoName = repoName
+						m.trunkBranch = currentBranch
+						m.repoInfo = fmt.Sprintf("Orphan Branch: %s (Trunk: %s)", repoName, currentBranch)
+						m.choices = []string{"Prepare Merge", "Quit"}
 						m.state = StateIdle
 					}
 				}
@@ -810,6 +906,43 @@ func (m Model) View() string {
 		}
 
 		s += "\n" + infoStyle.Render("(esc to cancel, tab to autocomplete, enter to confirm)") + "\n"
+		if m.err != nil {
+			s += "\n" + errorStyle.Render(fmt.Sprintf("Error: %v", m.err)) + "\n"
+		}
+
+	case StateViewRepos:
+		s += "Registered Repositories:\n\n"
+		if len(m.repoChoices) == 0 {
+			s += errorStyle.Render("No repositories found.") + "\n"
+		} else {
+			for i, choice := range m.repoChoices {
+				cursor := " "
+				if m.repoCursor == i {
+					cursor = ">"
+					s += selectedItemStyle.Render(fmt.Sprintf("%s %s", cursor, choice)) + "\n"
+				} else {
+					s += itemStyle.Render(fmt.Sprintf("%s %s", cursor, choice)) + "\n"
+				}
+			}
+		}
+		s += "\n" + infoStyle.Render("(esc/q/enter to return)") + "\n"
+
+	case StateRepoCheckoutSelection:
+		s += "Select Repository to Checkout Branch:\n\n"
+		if len(m.repoChoices) == 0 {
+			s += errorStyle.Render("No repositories found in configuration.") + "\n"
+		} else {
+			for i, choice := range m.repoChoices {
+				cursor := " "
+				if m.repoCursor == i {
+					cursor = ">"
+					s += selectedItemStyle.Render(fmt.Sprintf("%s %s", cursor, choice)) + "\n"
+				} else {
+					s += itemStyle.Render(fmt.Sprintf("%s %s", cursor, choice)) + "\n"
+				}
+			}
+		}
+		s += "\n" + infoStyle.Render("(esc to cancel, enter to checkout)") + "\n"
 		if m.err != nil {
 			s += "\n" + errorStyle.Render(fmt.Sprintf("Error: %v", m.err)) + "\n"
 		}
