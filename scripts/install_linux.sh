@@ -22,26 +22,15 @@ GOOS=linux go build -o "$BUILD_DIR/gg" ./cmd/gitgrove/main.go
 chmod +x "$BUILD_DIR/gg"
 echo "✅ Build complete: $BUILD_DIR/gg"
 
-echo "🔗 Configuring PATH..."
-RC_FILE=""
-if [ -f "$HOME/.bashrc" ]; then
-    RC_FILE="$HOME/.bashrc"
-elif [ -f "$HOME/.zshrc" ]; then
-    RC_FILE="$HOME/.zshrc"
-else
-    echo "⚠️  No .bashrc or .zshrc found. Please add '$BUILD_DIR' to PATH manually."
-    exit 0
-fi
-
-if grep -Eq ":$BUILD_DIR(:|\"|$)" "$RC_FILE"; then
-    echo "GitGrove is already in your PATH in $RC_FILE"
-else
-    echo "" >> "$RC_FILE"
-    echo "# GitGrove" >> "$RC_FILE"
-    echo "export PATH=\$PATH:$BUILD_DIR" >> "$RC_FILE"
-    echo "✅ Added to $RC_FILE"
-fi
-
+# 3. Instructions
 echo ""
-echo "🎉 Installation Complete! Version v1.0"
-echo "👉 Please restart your terminal or run: source $RC_FILE"
+echo "🎉 Build Complete!"
+echo "To use 'gg', you need to add it to your PATH."
+echo ""
+echo "Option 1: Create a symlink (Recommended)"
+echo "  sudo ln -sf $BUILD_DIR/gg /usr/local/bin/gg"
+echo ""
+echo "Option 2: Add build directory to PATH"
+echo "  export PATH=\$PATH:$BUILD_DIR"
+echo ""
+

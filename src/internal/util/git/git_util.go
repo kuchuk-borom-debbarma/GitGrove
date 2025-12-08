@@ -25,6 +25,16 @@ func IsGitRepository(path string) error {
 	return nil
 }
 
+// RepoRoot returns the absolute path to the root of the git repository.
+func RepoRoot() (string, error) {
+	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to get repo root: %s: %w", string(output), err)
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
 // Commit stages the given files and commits them with the provided message.
 func Commit(repoPath string, files []string, message string) error {
 	repoPath = filepath.Clean(repoPath)

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Target directory
-TARGET_DIR="../build/test-repo"
+TARGET_DIR="./test-repo"
 
 # Ensure we are in the scripts directory
 cd "$(dirname "$0")"

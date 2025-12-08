@@ -57,7 +57,10 @@ func Initialize(path string, atomicCommit bool) error {
 	}
 
 	//create .gg/gg.json file
-	if err := groveUtil.CreateGroveConfig(path, atomicCommit); err != nil {
+	// We enable RepoAwareContextMessage by default as it is a helper feature.
+	// AtomicCommit flag in Initialize controls the PATH validation (enforcement strength),
+	// but currently the pre-commit hook enforces logic whenever gg.json exists.
+	if err := groveUtil.CreateGroveConfig(path, true); err != nil {
 		return err
 	}
 
@@ -138,6 +141,7 @@ if command -v git-grove >/dev/null 2>&1; then
 elif command -v gg >/dev/null 2>&1; then
     GG_CMD=gg
 else
+    echo "Warning: git-grove not found in PATH. Context aware commit message will not work." >&2
     exit 0
 fi
 

@@ -13,12 +13,17 @@ import (
 // PreCommit enforces atomic commits in the GitGrove monorepo.
 func PreCommit() error {
 	// 1. Check for .gg/gg.json
-	cwd, err := os.Getwd()
+	// Ensure we are at the root
+	root, err := gitUtil.RepoRoot()
 	if err != nil {
-		return fmt.Errorf("failed to get current working directory: %w", err)
+		// Fallback specific to pre-commit: if we can't find root, we can't enforce global rules reliably?
+		// Or we assume CWD is ok?
+		// Better to fail open or try CWD?
+		// Let's try CWD as fallback.
+		root, _ = os.Getwd()
 	}
 
-	config, err := groveUtil.LoadConfig(cwd)
+	config, err := groveUtil.LoadConfig(root)
 	if err != nil {
 		// If config load fails because file doesn't exist, we assume we are not in a context that needs enforcement
 		// This covers orphan branches and non-grove repos
@@ -26,14 +31,14 @@ func PreCommit() error {
 			return nil
 		}
 		// Double check existence to be sure
-		if _, statErr := os.Stat(filepath.Join(cwd, ".gg", "gg.json")); os.IsNotExist(statErr) {
+		if _, statErr := os.Stat(filepath.Join(root, ".gg", "gg.json")); os.IsNotExist(statErr) {
 			return nil
 		}
 		return err
 	}
 
 	// 2. Get staged files
-	stagedFiles, err := gitUtil.GetStagedFiles(cwd)
+	stagedFiles, err := gitUtil.GetStagedFiles(root)
 	if err != nil {
 		return fmt.Errorf("failed to get staged files: %w", err)
 	}

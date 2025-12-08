@@ -25,17 +25,13 @@ go build -o "$BuildDir\gg.exe" .\cmd\gitgrove\main.go
 
 Write-Host "✅ Build complete: $BuildDir\gg.exe"
 
-# 3. Add to PATH
-Write-Host "🔗 Configuring PATH..."
-$CurrentPath = [Environment]::GetEnvironmentVariable("Path", "User")
-if ($CurrentPath -like "*$BuildDir*") {
-    Write-Host "GitGrove is already in your User PATH."
-} else {
-    $NewPath = "$CurrentPath;$BuildDir"
-    [Environment]::SetEnvironmentVariable("Path", $NewPath, "User")
-    Write-Host "✅ Added to User PATH."
-}
-
+# 3. Instructions
 Write-Host ""
-Write-Host "🎉 Installation Complete! Version v1.0"
-Write-Host "👉 Please restart PowerShell to use 'gg'."
+Write-Host "🎉 Build Complete!"
+Write-Host "To use 'gg', you need to add the build directory to your PATH."
+Write-Host ""
+Write-Host "Run this command to add it to your user PATH:"
+Write-Host "  \$env:Path += \";$BuildDir\""
+Write-Host "  [Environment]::SetEnvironmentVariable(\"Path\", \$env:Path + \";$BuildDir\", [EnvironmentVariableTarget]::User)"
+Write-Host ""
+

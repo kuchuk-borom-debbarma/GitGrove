@@ -93,9 +93,10 @@ type Model struct {
 	trunkBranch      string   // Name of trunk branch if in orphan branch
 	suggestions      []string // Autocompletion suggestions
 	suggestionCursor int      // Selected suggestion index
+	buildTime        string   // Build time of the binary
 }
 
-func InitialModel() Model {
+func InitialModel(buildTime string) Model {
 	cwd, _ := os.Getwd()
 
 	initialState := StateInit
@@ -168,15 +169,17 @@ func InitialModel() Model {
 	descriptions["Quit"] = "Exit the GitGrove application."
 
 	return Model{
-		state:          initialState,
-		choices:        mainChoices,
-		textInput:      ti,
-		path:           cwd,
-		repoInfo:       repoInfo,
-		isOrphan:       isOrphan,
-		orphanRepoName: orphanRepoName,
-		trunkBranch:    trunkBranch,
-		descriptions:   descriptions,
+		state:            initialState,
+		choices:          mainChoices,
+		textInput:        ti,
+		path:             cwd,
+		repoInfo:         repoInfo,
+		isOrphan:         isOrphan,
+		orphanRepoName:   orphanRepoName,
+		trunkBranch:      trunkBranch,
+		descriptions:     descriptions,
+		suggestionCursor: -1,
+		buildTime:        buildTime,
 	}
 }
 
@@ -196,6 +199,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			}
 		}
+
+		// case tea.PasteMsg:
+		// 	var cmd tea.Cmd
+		// 	m.textInput, cmd = m.textInput.Update(msg)
+		// 	return m, cmd
 	}
 
 	switch m.state {
@@ -232,7 +240,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// But user mentioned "init path as well as register path".
 					// So let's trigger it.
 					m.suggestions = getSuggestions(cwd, m.textInput.Value())
-					m.suggestionCursor = 0
+					m.suggestionCursor = -1
 					return m, nil
 				case "Open Repository":
 					m.state = StateOpenRepoPath
@@ -247,7 +255,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.textInput.SetValue("")
 					m.textInput.Placeholder = "Path to existing GitGrove repository"
 					m.suggestions = getSuggestions(cwd, "")
-					m.suggestionCursor = 0
+					m.suggestionCursor = -1
 					return m, nil
 				case "Quit":
 					m.quitting = true
@@ -271,6 +279,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyMsg:
 			switch msg.Type {
 			case tea.KeyEnter:
+				// Handle suggestion selection
+				if len(m.suggestions) > 0 && m.suggestionCursor >= 0 {
+					selected := m.suggestions[m.suggestionCursor]
+					if m.textInput.Value() != selected {
+						m.textInput.SetValue(selected)
+						m.textInput.CursorEnd()
+						cwd, _ := os.Getwd()
+						// OpenRepoPath uses cwd in Update suggestions loop
+						m.suggestions = getSuggestions(cwd, m.textInput.Value())
+						m.suggestionCursor = -1
+						return m, nil
+					}
+				}
+
 				path := m.textInput.Value()
 				if path == "" {
 					path, _ = os.Getwd()
@@ -331,19 +353,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			case tea.KeyTab:
 				if len(m.suggestions) > 0 {
+					if m.suggestionCursor < 0 {
+						m.suggestionCursor = 0
+					}
 					m.textInput.SetValue(m.suggestions[m.suggestionCursor])
 					m.textInput.CursorEnd()
 					m.suggestions = nil
 					cwd, _ := os.Getwd()
 					m.suggestions = getSuggestions(cwd, m.textInput.Value())
-					m.suggestionCursor = 0
+					m.suggestionCursor = -1
 				}
 				return m, nil
 			case tea.KeyUp:
 				if len(m.suggestions) > 0 {
 					m.suggestionCursor--
 					if m.suggestionCursor < 0 {
-						m.suggestionCursor = len(m.suggestions) - 1
+						// Don't wrap to bottom, stay at -1 (input field focus) or 0?
+						// Standard dropdown: -1 usually means "no selection" (focus on input).
+						// If user presses UP from 0, go to -1?
+						// Previous behavior: wrap to bottom.
+						// User said "shoots up to the first path" - maybe they meant it wraps to top when at bottom?
+						// "select press arrow to select second or other path it shoots up to the first path"
+						// This sounds like index 0 is being selected unexpectedly.
+						// If cursor wraps, pressing DOWN at bottom goes to top.
+						// Pressing DOWN at index 0 should go to index 1.
+						m.suggestionCursor = -1 // Stop at input
 					}
 				}
 				return m, nil
@@ -351,7 +385,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if len(m.suggestions) > 0 {
 					m.suggestionCursor++
 					if m.suggestionCursor >= len(m.suggestions) {
-						m.suggestionCursor = 0
+						// Stop at last item, don't wrap to top
+						m.suggestionCursor = len(m.suggestions) - 1
 					}
 				}
 				return m, nil
@@ -363,7 +398,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Update suggestions
 		cwd, _ := os.Getwd()
 		m.suggestions = getSuggestions(cwd, m.textInput.Value())
-		m.suggestionCursor = 0
+		m.suggestionCursor = -1
 		return m, cmd
 
 	case StateInputPath:
@@ -371,35 +406,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyMsg:
 			switch msg.Type {
 			case tea.KeyEnter:
-				// If suggestions are active, select the highlighted suggestion
-				if len(m.suggestions) > 0 {
+				// If suggestions are active
+				if len(m.suggestions) > 0 && m.suggestionCursor >= 0 {
 					selected := m.suggestions[m.suggestionCursor]
-					// Update input with selection
-					m.textInput.SetValue(selected)
-					m.textInput.CursorEnd()
 
-					// Clear suggestions to indicate selection is made?
-					// Or just refresh them based on new value (which might be the same)?
-					// If we clear them, the user "sees" the selection is done.
-					// But if they want to drill down further?
-					// If selected ends with /, let's keep suggestions open (refresh).
-					// If it looks like a file or we want to allow immediate submit next time:
+					// If the input ALREADY matches the suggestion, treat this as a submission (fall through)
+					// Or if the user wants to drill down, they used Tab or Enter previously.
+					// If they press Enter on "src/", and text input is "src/", we should submit "src/"?
+					// Yes, usually.
+					// But what if they want to see children of src/?
+					// They can type slash? "src/" -> trigger?
+					// Should Enter on "src/" (selected) -> set "src/" -> refresh suggestions to children?
+					// If suggestions update to children, then input != new selection (children).
 
-					// Re-fetch suggestions
-					cwd, _ := os.Getwd()
-					m.suggestions = getSuggestions(cwd, m.textInput.Value())
-					m.suggestionCursor = 0
+					// Improved Logic:
+					// 1. If text != selected: Set text = selected. Refresh suggestions.
+					// 2. If text == selected: Submit.
 
-					// If the input WAS ALREADY the suggestion (user pressed Enter twice), then submit?
-					// But we just set it.
-					// Let's defer submit to a Clean Enter (when no suggestions or user explicitly desires).
-					// Actually, checking if previous value == new value might be tricky.
-					// Let's just Return here. The user sees the text update.
-					// Next Enter will fall through validation below if suggestions are cleared or if they want to force it.
-					// BUT wait, if I select "src/" and suggestions refresh to show "src/foo", "src/bar"...
-					// Then I am still in browsing mode.
-					// If I pick a leaf directory and there are no subdirs, suggestions might be empty or just "."?
-					return m, nil
+					if m.textInput.Value() != selected {
+						m.textInput.SetValue(selected)
+						m.textInput.CursorEnd()
+
+						// Refresh suggestions (Drill down)
+						cwd, _ := os.Getwd()
+						m.suggestions = getSuggestions(cwd, m.textInput.Value())
+						m.suggestionCursor = -1
+						return m, nil
+					}
+					// If equal, fall through to submit logic
 				}
 
 				path := m.textInput.Value()
@@ -426,26 +460,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case tea.KeyTab:
 				if len(m.suggestions) > 0 {
+					if m.suggestionCursor < 0 {
+						m.suggestionCursor = 0
+					}
 					m.textInput.SetValue(m.suggestions[m.suggestionCursor])
 					m.textInput.CursorEnd()
-					m.suggestions = nil
-					// Update suggestions based on new path? Usually clearing is fine until next input.
-					// Or trigger update immediately if we want continuous drilling down.
-					// Let's re-fetch suggestions for the new full path to allow deeper navigation immediately.
-					// Use "." as base because Init path is absolute or relative to CWD?
-					// Text input defaults to CWD. If user clears it and types relative path, it's relative to CWD.
-					// getSuggestions takes (basePath, input).
-					// For Init, base is likely CWD.
+					// Re-fetch suggestions
 					cwd, _ := os.Getwd()
 					m.suggestions = getSuggestions(cwd, m.textInput.Value())
-					m.suggestionCursor = 0
+					m.suggestionCursor = -1
 				}
 				return m, nil
 			case tea.KeyUp:
 				if len(m.suggestions) > 0 {
 					m.suggestionCursor--
 					if m.suggestionCursor < 0 {
-						m.suggestionCursor = len(m.suggestions) - 1
+						m.suggestionCursor = -1
 					}
 				}
 				return m, nil // Don't process this key in textinput
@@ -453,7 +483,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if len(m.suggestions) > 0 {
 					m.suggestionCursor++
 					if m.suggestionCursor >= len(m.suggestions) {
-						m.suggestionCursor = 0
+						m.suggestionCursor = len(m.suggestions) - 1
 					}
 				}
 				return m, nil // Don't process this key in textinput
@@ -469,7 +499,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Use "." (Current Directory) as base for Init.
 		cwd, _ := os.Getwd()
 		m.suggestions = getSuggestions(cwd, m.textInput.Value())
-		m.suggestionCursor = 0 // Reset cursor on new input
+		m.suggestionCursor = -1 // Reset cursor on new input
 
 		return m, cmd
 
@@ -624,7 +654,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 					// Initialize suggestions from root (m.path is repo root)
 					m.suggestions = getSuggestions(m.path, "")
-					m.suggestionCursor = 0
+					m.suggestionCursor = -1
 				}
 			case tea.KeyEsc:
 				m.state = StateIdle
@@ -639,26 +669,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch msg.Type {
 			case tea.KeyTab: // Not tea.KeyTab? tea.KeyTab is correct but let's check standard tea
 				if len(m.suggestions) > 0 {
+					if m.suggestionCursor < 0 {
+						m.suggestionCursor = 0
+					}
 					m.textInput.SetValue(m.suggestions[m.suggestionCursor]) // Use selected suggestion
 					// Move cursor to end?
 					m.textInput.CursorEnd()
-					m.suggestions = nil // Clear suggestions after selection? Or keep to allow drilling down?
-					// Usually we want to clear or update. Let's update suggestions based on new value.
+					// Update suggestions based on new value.
 					m.suggestions = getSuggestions(m.path, m.textInput.Value())
-					m.suggestionCursor = 0
+					m.suggestionCursor = -1
 				}
 				return m, nil
 			case tea.KeyEnter:
 				// If suggestions are active, select the highlighted suggestion
-				if len(m.suggestions) > 0 {
+				if len(m.suggestions) > 0 && m.suggestionCursor >= 0 {
 					selected := m.suggestions[m.suggestionCursor]
-					m.textInput.SetValue(selected)
-					m.textInput.CursorEnd()
 
-					// Refresh suggestions for drill-down
-					m.suggestions = getSuggestions(m.path, m.textInput.Value())
-					m.suggestionCursor = 0
-					return m, nil
+					if m.textInput.Value() != selected {
+						m.textInput.SetValue(selected)
+						m.textInput.CursorEnd()
+
+						// Refresh suggestions for drill-down
+						m.suggestions = getSuggestions(m.path, m.textInput.Value())
+						m.suggestionCursor = -1
+						return m, nil
+					}
+					// Fall through to submit
 				}
 
 				repoPath := m.textInput.Value()
@@ -685,22 +721,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if len(m.suggestions) > 0 {
 					m.suggestionCursor--
 					if m.suggestionCursor < 0 {
-						m.suggestionCursor = len(m.suggestions) - 1
+						m.suggestionCursor = -1
 					}
 				}
+				return m, nil
 			case tea.KeyDown:
 				if len(m.suggestions) > 0 {
 					m.suggestionCursor++
 					if m.suggestionCursor >= len(m.suggestions) {
-						m.suggestionCursor = 0
+						m.suggestionCursor = len(m.suggestions) - 1
 					}
 				}
+				return m, nil
 			default:
 				// For any other key, update text input first
 				m.textInput, cmd = m.textInput.Update(msg)
 				// Then update suggestions
 				m.suggestions = getSuggestions(m.path, m.textInput.Value())
-				m.suggestionCursor = 0
+				m.suggestionCursor = -1
 				return m, cmd
 			}
 		}
@@ -810,7 +848,7 @@ func (m Model) View() string {
 	header := titleBorderStyle.Render(
 		lipgloss.JoinVertical(lipgloss.Center,
 			titleStyle.Render("GitGrove"),
-			infoStyle.Render("v1.0"),
+			infoStyle.Render("v1.0 ("+m.buildTime+")"),
 		),
 	)
 
@@ -840,18 +878,24 @@ func (m Model) View() string {
 		// Render suggestions
 		if len(m.suggestions) > 0 {
 			s += "\nSuggestions:\n"
-			for i, sugg := range m.suggestions {
+			start := 0
+			limit := 5
+			if m.suggestionCursor >= limit {
+				start = m.suggestionCursor - limit + 1
+			}
+			end := start + limit
+			if end > len(m.suggestions) {
+				end = len(m.suggestions)
+			}
+
+			for i := start; i < end; i++ {
+				sugg := m.suggestions[i]
 				cursor := " "
 				if i == m.suggestionCursor {
 					cursor = ">"
 					s += selectedItemStyle.Render(fmt.Sprintf("%s 📁 %s", cursor, sugg)) + "\n"
 				} else {
 					s += itemStyle.Render(fmt.Sprintf("%s 📁 %s", cursor, sugg)) + "\n"
-				}
-				// Limit suggestions to 5?
-				if i >= 4 {
-					s += itemStyle.Render("  ...") + "\n"
-					break
 				}
 			}
 		}
@@ -869,17 +913,25 @@ func (m Model) View() string {
 		// Render suggestions (reuse logic)
 		if len(m.suggestions) > 0 {
 			s += "\nSuggestions:\n"
-			for i, sugg := range m.suggestions {
+
+			start := 0
+			limit := 5
+			if m.suggestionCursor >= limit {
+				start = m.suggestionCursor - limit + 1
+			}
+			end := start + limit
+			if end > len(m.suggestions) {
+				end = len(m.suggestions)
+			}
+
+			for i := start; i < end; i++ {
+				sugg := m.suggestions[i]
 				cursor := " "
 				if i == m.suggestionCursor {
 					cursor = ">"
 					s += selectedItemStyle.Render(fmt.Sprintf("%s 📁 %s", cursor, sugg)) + "\n"
 				} else {
 					s += itemStyle.Render(fmt.Sprintf("%s 📁 %s", cursor, sugg)) + "\n"
-				}
-				if i >= 4 {
-					s += itemStyle.Render("  ...") + "\n"
-					break
 				}
 			}
 		}
@@ -952,18 +1004,24 @@ func (m Model) View() string {
 		// Render suggestions
 		if len(m.suggestions) > 0 {
 			s += "\nSuggestions:\n"
-			for i, sugg := range m.suggestions {
+			start := 0
+			limit := 5
+			if m.suggestionCursor >= limit {
+				start = m.suggestionCursor - limit + 1
+			}
+			end := start + limit
+			if end > len(m.suggestions) {
+				end = len(m.suggestions)
+			}
+
+			for i := start; i < end; i++ {
+				sugg := m.suggestions[i]
 				cursor := " "
 				if i == m.suggestionCursor {
 					cursor = ">"
 					s += selectedItemStyle.Render(fmt.Sprintf("%s 📁 %s", cursor, sugg)) + "\n"
 				} else {
 					s += itemStyle.Render(fmt.Sprintf("%s 📁 %s", cursor, sugg)) + "\n"
-				}
-				// Limit suggestions to 5?
-				if i >= 4 {
-					s += itemStyle.Render("  ...") + "\n"
-					break
 				}
 			}
 		}

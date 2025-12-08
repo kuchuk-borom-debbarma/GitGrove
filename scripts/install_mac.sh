@@ -21,35 +21,22 @@ fi
 # 2. Build
 echo "📦 Building binary..."
 mkdir -p "$BUILD_DIR"
-cd "$SRC_DIR"
-go build -o "$BUILD_DIR/gg" ./cmd/gitgrove/main.go
+# Build the binary
+pushd "$SRC_DIR" > /dev/null
+go build -ldflags "-X main.BuildTime=$(date +'%d-%m-%y-%H-%M-%S')" -o "$BUILD_DIR/gg" ./cmd/gitgrove/main.go
+popd > /dev/null
 chmod +x "$BUILD_DIR/gg"
 echo "✅ Build complete: $BUILD_DIR/gg"
 
-# 3. Add to PATH
-echo "🔗 Configuring PATH..."
-SHELL_NAME=$(basename "$SHELL")
-RC_FILE=""
-
-if [ "$SHELL_NAME" = "zsh" ]; then
-    RC_FILE="$HOME/.zshrc"
-elif [ "$SHELL_NAME" = "bash" ]; then
-    RC_FILE="$HOME/.bash_profile"
-else
-    echo "⚠️  Unsupported shell: $SHELL_NAME. Please add '$BUILD_DIR' to PATH manually."
-    exit 0
-fi
-
-# Check if PATH is already set correctly using strict regex
-if grep -Eq ":$BUILD_DIR(:|\"|$)" "$RC_FILE"; then
-    echo "GitGrove is already in your PATH in $RC_FILE"
-else
-    echo "" >> "$RC_FILE"
-    echo "# GitGrove" >> "$RC_FILE"
-    echo "export PATH=\$PATH:$BUILD_DIR" >> "$RC_FILE"
-    echo "✅ Added to $RC_FILE"
-fi
-
+# 3. Instructions
 echo ""
-echo "🎉 Installation Complete! Version v1.0"
-echo "👉 Please restart your terminal or run: source $RC_FILE"
+echo "🎉 Build Complete!"
+echo "To use 'gg', you need to add it to your PATH."
+echo ""
+echo "Option 1: Create a symlink (Recommended)"
+echo "  sudo ln -sf $BUILD_DIR/gg /usr/local/bin/gg"
+echo ""
+echo "Option 2: Add build directory to PATH"
+echo "  export PATH=\$PATH:$BUILD_DIR"
+echo ""
+

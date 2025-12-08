@@ -12,6 +12,16 @@ import (
 
 // PrepareCommitMsg modifies the commit message to prepend [RepoName] if strict context is established.
 func PrepareCommitMsg(msgFile, source, sha string) error {
+	// Determine Repository Root
+	// Hooks are executed from the root of the repo (usually), or CWD depending on how git is invoked?
+	// Actually, hooks are run with CWD set to the root of the working tree by git.
+	// BUT, just to be safe and consistent esp. if called manually or in weird environments:
+	root, err := gitUtil.RepoRoot()
+	if err != nil {
+		// Fallback to CWD if not in a git repo (unlikely for a hook)
+		root, _ = os.Getwd()
+	}
+
 	// Only run on normal commits (skip rebase, merge, amend if preferred, but usually we want it on message creation)
 	// source can be: message, template, merge, squash, commit (when -c/-C/-F is used).
 	// We mainly want to catch when user types a new message or uses -m.
@@ -27,12 +37,7 @@ func PrepareCommitMsg(msgFile, source, sha string) error {
 	// If it's a merge, we probably shouldn't mess with it? Or maybe we should?
 	// Let's stick to standard commits for now.
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get cwd: %w", err)
-	}
-
-	config, err := groveUtil.LoadConfig(cwd)
+	config, err := groveUtil.LoadConfig(root)
 	if err != nil {
 		// Not a grove repo or error loading config.
 		// If working in an orphan branch (gg/<trunk>/<repoName>), config might not exist on disk,
@@ -42,7 +47,7 @@ func PrepareCommitMsg(msgFile, source, sha string) error {
 		loadedFromBranch := false
 		if isMissing {
 			// Check if we are in an orphan branch
-			currentBranch, branchErr := gitUtil.CurrentBranch(cwd)
+			currentBranch, branchErr := gitUtil.CurrentBranch(root)
 			if branchErr == nil && strings.HasPrefix(currentBranch, "gg/") {
 				parts := strings.Split(currentBranch, "/")
 				if len(parts) >= 3 {
@@ -53,7 +58,7 @@ func PrepareCommitMsg(msgFile, source, sha string) error {
 					trunk := strings.Join(parts[1:len(parts)-1], "/")
 
 					// Try to load from trunk
-					branchConfig, branchConfigErr := groveUtil.LoadConfigFromGitRef(cwd, trunk)
+					branchConfig, branchConfigErr := groveUtil.LoadConfigFromGitRef(root, trunk)
 					if branchConfigErr == nil {
 						config = branchConfig
 						loadedFromBranch = true
@@ -69,7 +74,7 @@ func PrepareCommitMsg(msgFile, source, sha string) error {
 				return nil
 			}
 			// Double check existence to be sure
-			if _, statErr := os.Stat(filepath.Join(cwd, ".gg", "gg.json")); os.IsNotExist(statErr) {
+			if _, statErr := os.Stat(filepath.Join(root, ".gg", "gg.json")); os.IsNotExist(statErr) {
 				return nil
 			}
 			return err
@@ -83,7 +88,7 @@ func PrepareCommitMsg(msgFile, source, sha string) error {
 	}
 
 	// 1. Orphan Branch Logic (Priority)
-	currentBranch, err := gitUtil.CurrentBranch(cwd)
+	currentBranch, err := gitUtil.CurrentBranch(root)
 	if err == nil && strings.HasPrefix(currentBranch, "gg/") {
 		// Parse repo name from branch: gg/<trunk>/<repoName>
 		parts := strings.Split(currentBranch, "/")
@@ -96,7 +101,7 @@ func PrepareCommitMsg(msgFile, source, sha string) error {
 
 	// 2. Trunk/Monorepo Logic (Scanning staged files)
 	// Logic from pre_commit.go to find affected repos
-	stagedFiles, err := gitUtil.GetStagedFiles(cwd)
+	stagedFiles, err := gitUtil.GetStagedFiles(root)
 	// fmt.Printf("Debug: Staged files: %v\n", stagedFiles)
 	if err != nil {
 		return fmt.Errorf("failed to get staged files: %w", err)

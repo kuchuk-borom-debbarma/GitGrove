@@ -11,6 +11,8 @@ import (
 	"github.com/kuchuk-borom-debbarma/GitGrove/src/internal/tui"
 )
 
+var BuildTime = "unknown"
+
 func main() {
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
@@ -85,7 +87,7 @@ func main() {
 		}
 	}
 
-	p := tea.NewProgram(tui.InitialModel(), tea.WithAltScreen())
+	p := tea.NewProgram(tui.InitialModel(BuildTime), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
 		os.Exit(1)
