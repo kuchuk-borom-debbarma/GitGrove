@@ -17,47 +17,28 @@ By using GitGrove, developers can enjoy the "feel" of working in a small, isolat
 
 ## 🛠️ Installation
 
-### Prerequisites
-*   Git
-*   Go (Golang) 1.21+ (to build)
-
-### Building GitGrove
-
-1.  Clone the repository.
-2.  Run the build script:
+### 1. Build or Download
+You can build GitGrove for your platform (Mac, Linux, Windows) using the release script:
 
 ```bash
-./scripts/build_gg.sh
+# Builds binaries for all platforms in build/release/
+./scripts/build_release.sh
 ```
 
-This will create the `gg` executable in the `build/` directory.
-
-### ⚠️ CRITICAL: Add to PATH
-
-**You MUST add the `gg` binary to your system's PATH variables.**
-
-GitGrove relies on internal Git Hooks (`pre-commit`, `prepare-commit-msg`) that need to execute the `gg` binary. If `gg` is not globally accessible via your PATH, these hooks will fail, and the GitGrove features (Context Aware Commits, Atomic Enforcement) will not work.
+### 2. Install (Add to PATH)
+To make the `gg` command available everywhere, run the installation helper:
 
 **Mac/Linux:**
-Add the build directory to your shell configuration (e.g., `.zshrc`, `.bashrc`):
-
 ```bash
-export PATH=$PATH:/path/to/GitGrove/build
+./scripts/install.sh
 ```
 
-Or move the binary to a common bin location:
-
-```bash
-sudo mv build/gg /usr/local/bin/
+**Windows (PowerShell):**
+```powershell
+.\scripts\install.ps1
 ```
 
-*Verify installation:*
-```bash
-gg
-# This should launch the GitGrove TUI (Terminal User Interface)
-```
-
----
+*Follow the prompts to point it to your binary location (usually `build/release/`)*
 
 ## 📖 How to Use
 
@@ -123,10 +104,10 @@ gg prepare-merge
 
 **What happens?**
 GitGrove will:
-1.  Switch to `main`.
+1.  Switch to the **trunk branch** (e.g., `main`).
 2.  Create a timestamped integration branch (e.g., `gg/merge-prep/service-a/12345`).
 3.  Merge your orphan branch changes back into the correct nested file structure.
-4.  You can now open a **Pull Request** from this branch to `main`.
+4.  You can now open a **Pull Request** from this branch to your trunk.
 
 ---
 
