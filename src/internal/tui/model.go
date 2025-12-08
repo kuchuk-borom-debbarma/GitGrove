@@ -23,14 +23,14 @@ var (
 	appStyle = lipgloss.NewStyle().Margin(1, 2)
 
 	titleStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FFFDF5")).
-			Background(lipgloss.Color("#25A065")).
+			Foreground(lipgloss.Color("#FAFAFA")).
+			Background(lipgloss.Color("#7D56F4")).
 			Padding(0, 1).
 			Bold(true)
 
 	titleBorderStyle = lipgloss.NewStyle().
 				BorderStyle(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("62")).
+				BorderForeground(lipgloss.Color("#7D56F4")).
 				Padding(1, 2).
 				MarginBottom(1)
 
@@ -39,24 +39,24 @@ var (
 
 	selectedItemStyle = lipgloss.NewStyle().
 				PaddingLeft(0).
-				Foreground(lipgloss.Color("170")).
+				Foreground(lipgloss.Color("#EE6FF8")).
 				Bold(true)
 
 	inputStyle = lipgloss.NewStyle().
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("63")).
+			BorderStyle(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#7D56F4")).
 			Padding(0, 1)
 
 	errorStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FF0000")).
+			Foreground(lipgloss.Color("#FF4C4C")).
 			Bold(true)
 
 	successStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#00FF00")).
+			Foreground(lipgloss.Color("#00FA9A")).
 			Bold(true)
 
 	infoStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("241"))
+			Foreground(lipgloss.Color("#AAAAAA"))
 )
 
 // AppState definitions
@@ -151,20 +151,21 @@ func InitialModel() Model {
 
 	if initialState == StateInit {
 		mainChoices = []string{"Init GitGrove", "Open Repository", "Quit"}
-		descriptions["Init GitGrove"] = initialize.Description()
-		descriptions["Open Repository"] = "Open an existing GitGrove repository."
+		descriptions["Init GitGrove"] = "Initialize a new GitGrove workspace in the current directory."
+		descriptions["Open Repository"] = "Open an existing GitGrove repository located elsewhere."
 	} else {
 		if isOrphan {
-			mainChoices = []string{"Prepare Merge", "Quit"}
-			descriptions["Prepare Merge"] = preparemerge.Description()
+			mainChoices = []string{"Prepare Merge", "Return to Trunk", "Quit"}
+			descriptions["Prepare Merge"] = "Prepare the current orphan branch for merging back into the trunk."
+			descriptions["Return to Trunk"] = fmt.Sprintf("Checkout the trunk branch (%s) and leave the orphan state.", trunkBranch)
 		} else {
 			mainChoices = []string{"View Repos", "Register Repo", "Checkout Repo Branch", "Quit"}
-			descriptions["View Repos"] = "View list of registered repositories."
-			descriptions["Register Repo"] = registerrepo.Description()
-			descriptions["Checkout Repo Branch"] = "Checkout to an orphan branch for a specific repository."
+			descriptions["View Repos"] = "View a list of all registered repositories in this workspace."
+			descriptions["Register Repo"] = "Register a new repository (subdirectory) and create its orphan branch."
+			descriptions["Checkout Repo Branch"] = "Switch context to a specific repository's orphan branch."
 		}
 	}
-	descriptions["Quit"] = "Exit the application."
+	descriptions["Quit"] = "Exit the GitGrove application."
 
 	return Model{
 		state:          initialState,
@@ -302,7 +303,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							} else {
 								m.repoInfo = fmt.Sprintf("Orphan Branch: %s", currentBranch)
 							}
-							m.choices = []string{"Prepare Merge", "Quit"}
+							m.choices = []string{"Prepare Merge", "Return to Trunk", "Quit"}
 						} else {
 							m.isOrphan = false
 							m.repoInfo = getTrunkContextInfo(path, currentBranch)
@@ -507,6 +508,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 					// If not orphan, something is weird because this option should only be available in orphan state.
 					m.err = fmt.Errorf("prepare merge only available in orphan branches")
+					return m, nil
+
+				case "Return to Trunk":
+					if m.trunkBranch == "" {
+						m.err = fmt.Errorf("unknown trunk branch")
+						return m, nil
+					}
+					if err := gitUtil.Checkout(m.path, m.trunkBranch); err != nil {
+						m.err = fmt.Errorf("failed to checkout trunk: %v", err)
+					} else {
+						// Checked out successfully.
+						// Re-evaluate context.
+						// Or just assume we are back to trunk.
+						m.isOrphan = false
+						m.repoInfo = getTrunkContextInfo(m.path, m.trunkBranch)
+						m.choices = []string{"View Repos", "Register Repo", "Checkout Repo Branch", "Quit"}
+						m.state = StateIdle
+					}
 					return m, nil
 
 				case "View Repos":
@@ -781,9 +800,9 @@ func (m Model) View() string {
 				cursor := " "
 				if i == m.suggestionCursor {
 					cursor = ">"
-					s += selectedItemStyle.Render(fmt.Sprintf("%s %s", cursor, sugg)) + "\n"
+					s += selectedItemStyle.Render(fmt.Sprintf("%s 📁 %s", cursor, sugg)) + "\n"
 				} else {
-					s += itemStyle.Render(fmt.Sprintf("%s %s", cursor, sugg)) + "\n"
+					s += itemStyle.Render(fmt.Sprintf("%s 📁 %s", cursor, sugg)) + "\n"
 				}
 				// Limit suggestions to 5?
 				if i >= 4 {
@@ -810,9 +829,9 @@ func (m Model) View() string {
 				cursor := " "
 				if i == m.suggestionCursor {
 					cursor = ">"
-					s += selectedItemStyle.Render(fmt.Sprintf("%s %s", cursor, sugg)) + "\n"
+					s += selectedItemStyle.Render(fmt.Sprintf("%s 📁 %s", cursor, sugg)) + "\n"
 				} else {
-					s += itemStyle.Render(fmt.Sprintf("%s %s", cursor, sugg)) + "\n"
+					s += itemStyle.Render(fmt.Sprintf("%s 📁 %s", cursor, sugg)) + "\n"
 				}
 				if i >= 4 {
 					s += itemStyle.Render("  ...") + "\n"
@@ -893,9 +912,9 @@ func (m Model) View() string {
 				cursor := " "
 				if i == m.suggestionCursor {
 					cursor = ">"
-					s += selectedItemStyle.Render(fmt.Sprintf("%s %s", cursor, sugg)) + "\n"
+					s += selectedItemStyle.Render(fmt.Sprintf("%s 📁 %s", cursor, sugg)) + "\n"
 				} else {
-					s += itemStyle.Render(fmt.Sprintf("%s %s", cursor, sugg)) + "\n"
+					s += itemStyle.Render(fmt.Sprintf("%s 📁 %s", cursor, sugg)) + "\n"
 				}
 				// Limit suggestions to 5?
 				if i >= 4 {

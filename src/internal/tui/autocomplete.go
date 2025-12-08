@@ -3,6 +3,7 @@ package tui
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -144,5 +145,6 @@ func getSuggestions(basePath, input string) []string {
 			}
 		}
 	}
+	sort.Strings(suggestions)
 	return suggestions
 }
