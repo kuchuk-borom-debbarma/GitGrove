@@ -371,6 +371,37 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyMsg:
 			switch msg.Type {
 			case tea.KeyEnter:
+				// If suggestions are active, select the highlighted suggestion
+				if len(m.suggestions) > 0 {
+					selected := m.suggestions[m.suggestionCursor]
+					// Update input with selection
+					m.textInput.SetValue(selected)
+					m.textInput.CursorEnd()
+
+					// Clear suggestions to indicate selection is made?
+					// Or just refresh them based on new value (which might be the same)?
+					// If we clear them, the user "sees" the selection is done.
+					// But if they want to drill down further?
+					// If selected ends with /, let's keep suggestions open (refresh).
+					// If it looks like a file or we want to allow immediate submit next time:
+
+					// Re-fetch suggestions
+					cwd, _ := os.Getwd()
+					m.suggestions = getSuggestions(cwd, m.textInput.Value())
+					m.suggestionCursor = 0
+
+					// If the input WAS ALREADY the suggestion (user pressed Enter twice), then submit?
+					// But we just set it.
+					// Let's defer submit to a Clean Enter (when no suggestions or user explicitly desires).
+					// Actually, checking if previous value == new value might be tricky.
+					// Let's just Return here. The user sees the text update.
+					// Next Enter will fall through validation below if suggestions are cleared or if they want to force it.
+					// BUT wait, if I select "src/" and suggestions refresh to show "src/foo", "src/bar"...
+					// Then I am still in browsing mode.
+					// If I pick a leaf directory and there are no subdirs, suggestions might be empty or just "."?
+					return m, nil
+				}
+
 				path := m.textInput.Value()
 				if path == "" {
 					path, _ = os.Getwd()
@@ -618,11 +649,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, nil
 			case tea.KeyEnter:
+				// If suggestions are active, select the highlighted suggestion
+				if len(m.suggestions) > 0 {
+					selected := m.suggestions[m.suggestionCursor]
+					m.textInput.SetValue(selected)
+					m.textInput.CursorEnd()
+
+					// Refresh suggestions for drill-down
+					m.suggestions = getSuggestions(m.path, m.textInput.Value())
+					m.suggestionCursor = 0
+					return m, nil
+				}
+
 				repoPath := m.textInput.Value()
 				if repoPath != "" {
 					// Call RegisterRepo
-					// Need creating model.GGRepo struct. Import github.com/kuchuk-borom-debbarma/GitGrove/src/model
-					// Wait, import is not here. I need to add it to imports.
 					newRepo := model.GGRepo{
 						Name: m.registerName,
 						Path: repoPath, // Should be relative path
@@ -747,7 +788,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.orphanRepoName = repoName
 						m.trunkBranch = currentBranch
 						m.repoInfo = fmt.Sprintf("Orphan Branch: %s (Trunk: %s)", repoName, currentBranch)
-						m.choices = []string{"Prepare Merge", "Quit"}
+						m.choices = []string{"Prepare Merge", "Return to Trunk", "Quit"}
 						m.state = StateIdle
 					}
 				}
@@ -767,7 +808,10 @@ func (m Model) View() string {
 
 	// Header
 	header := titleBorderStyle.Render(
-		titleStyle.Render("GitGrove"),
+		lipgloss.JoinVertical(lipgloss.Center,
+			titleStyle.Render("GitGrove"),
+			infoStyle.Render("v1.0"),
+		),
 	)
 
 	switch m.state {

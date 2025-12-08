@@ -15,31 +15,22 @@ By using GitGrove, developers can enjoy the "feel" of working in a small, isolat
 
 ---
 
-## 🛠️ Installation
+## Installation
 
-### 1. Build or Download
-You can build GitGrove for your platform (Mac, Linux, Windows) using the release script:
+Currently, you can install GitGrove by building from source using the provided scripts for your operating system.
 
-```bash
-# Builds binaries for all platforms in build/release/
-# The proper built binary needs to be renamed to "gg"
-./scripts/build_release.sh
-```
+### Prerequisites
+- [Go](https://go.dev/doc/install) 1.22 or higher.
 
-### 2. Install (Add to PATH)
-To make the `gg` command available everywhere, run the installation helper. Make sure your binary is named gg:
+### 1. Build & Install
+Run the installation script for your OS. This will build the binary and add it to your PATH.
 
-**Mac/Linux:**
-```bash
-./scripts/install.sh
-```
+- **MacOS**: `./scripts/install_mac.sh`
+- **Linux**: `./scripts/install_linux.sh`
+- **Windows**: `.\scripts\install_windows.ps1`
 
-**Windows (PowerShell):**
-```powershell
-.\scripts\install.ps1
-```
-
-*Follow the prompts to point it to your binary location (usually `build/release/`)*
+### 2. Restart Terminal
+After installation, either restart your terminal or run the command suggested by the script (e.g., `source ~/.zshrc`) to load the new PATH configuration.
 
 ## 📖 How to Use
 
