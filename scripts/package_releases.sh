@@ -69,6 +69,7 @@ package_platform linux arm64 setup_linux.sh
 
 # --- Windows ---
 package_platform windows amd64 setup_windows.ps1
+package_platform windows arm64 setup_windows.ps1
 
 echo ""
 echo "🎉 All releases packaged in $DIST_DIR"
