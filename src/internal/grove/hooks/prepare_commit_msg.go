@@ -52,6 +52,19 @@ func PrepareCommitMsg(msgFile, source, sha string) error {
 		return nil
 	}
 
+	// 1. Orphan Branch Logic (Priority)
+	currentBranch, err := gitUtil.CurrentBranch(cwd)
+	if err == nil && strings.HasPrefix(currentBranch, "gg/") {
+		// Parse repo name from branch: gg/<trunk>/<repoName>
+		parts := strings.Split(currentBranch, "/")
+		if len(parts) >= 3 {
+			repoName := parts[len(parts)-1]
+			// In an orphan branch, EVERYTHING belongs to this repo.
+			return prependRepoName(msgFile, repoName)
+		}
+	}
+
+	// 2. Trunk/Monorepo Logic (Scanning staged files)
 	// Logic from pre_commit.go to find affected repos
 	stagedFiles, err := gitUtil.GetStagedFiles(cwd)
 	// fmt.Printf("Debug: Staged files: %v\n", stagedFiles)
@@ -88,22 +101,26 @@ func PrepareCommitMsg(msgFile, source, sha string) error {
 		for r := range affectedRepos {
 			repoName = r
 		}
-
-		// Read existing message
-		msgBytes, err := os.ReadFile(msgFile)
-		if err != nil {
-			return fmt.Errorf("failed to read commit message file: %w", err)
-		}
-		msg := string(msgBytes)
-
-		prefix := fmt.Sprintf("[%s] ", repoName)
-		if !strings.HasPrefix(msg, prefix) {
-			newMsg := prefix + msg
-			if err := os.WriteFile(msgFile, []byte(newMsg), 0644); err != nil {
-				return fmt.Errorf("failed to write commit message file: %w", err)
-			}
-		}
+		return prependRepoName(msgFile, repoName)
 	}
 
+	return nil
+}
+
+func prependRepoName(msgFile, repoName string) error {
+	// Read existing message
+	msgBytes, err := os.ReadFile(msgFile)
+	if err != nil {
+		return fmt.Errorf("failed to read commit message file: %w", err)
+	}
+	msg := string(msgBytes)
+
+	prefix := fmt.Sprintf("[%s] ", repoName)
+	if !strings.HasPrefix(msg, prefix) {
+		newMsg := prefix + msg
+		if err := os.WriteFile(msgFile, []byte(newMsg), 0644); err != nil {
+			return fmt.Errorf("failed to write commit message file: %w", err)
+		}
+	}
 	return nil
 }
