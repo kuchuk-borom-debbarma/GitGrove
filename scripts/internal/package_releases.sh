@@ -15,10 +15,13 @@ echo "📦 Packaging GitGrove Releases..."
 rm -rf "$DIST_DIR"
 rm -rf "$TEMP_DIR"
 mkdir -p "$DIST_DIR"
+mkdir -p "$TEMP_DIR"
 
 # Create README.txt
 cat <<EOF > "$TEMP_DIR/README.txt"
 GitGrove (gg) Installation
+
+Add gg to your PATH:
 
 1. Move the binary to a location in your PATH (e.g., /usr/local/bin).
    sudo mv gg /usr/local/bin/  (Linux/Mac)

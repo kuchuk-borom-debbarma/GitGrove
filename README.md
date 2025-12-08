@@ -22,23 +22,30 @@ You can install GitGrove by downloading a pre-built release or by building from 
 ### Option 1: Pre-built Release (Recommended)
 This is the easiest way to get started.
 
-1. **Download** the latest release `.zip` for your OS and architecture (e.g., `GitGrove_darwin_arm64.zip` for Apple Silicon Mac).
-2. **Unzip** the archive.
-3. **Run the Setup Script** inside the extracted folder to add `gg` to your PATH:
-   - **MacOS/Linux**: Open terminal in the folder and run `./setup.sh`
-   - **Windows**: Right-click `setup.ps1` and "Run with PowerShell" (or run `.\setup.ps1` in a terminal).
+1. **Download** the latest release `.zip` for your OS from the Releases page.
+2. **Extract** the archive.
+3. **Add the binary to your PATH**:
+   - **MacOS/Linux**: Move the `gg` binary to `/usr/local/bin` (or another directory in your PATH).
+     ```bash
+     sudo mv gg /usr/local/bin/
+     ```
+   - **Windows**: Move `gg.exe` to a folder in your PATH (e.g., `C:\Program Files\GitGrove`) and add that folder to your User PATH environment variable.
 4. **Restart your terminal** to apply the changes.
 
 ### Option 2: Build from Source
-Use this method if you want to develop GitGrove or validte the latest source code.
+Use this method if you want to develop GitGrove or validate the latest source code.
 **Prerequisite**: [Go](https://go.dev/doc/install) 1.22 or higher.
 
-1. **Clone** the repository.
-2. **Run the Installer** for your OS from the project root:
+1. **Clone** the repository:
+   ```bash
+   git clone https://github.com/kuchuk-borom-debbarma/GitGrove.git
+   cd GitGrove
+   ```
+2. **Run the Build Script** for your OS:
    - **MacOS**: `./scripts/install_mac.sh`
    - **Linux**: `./scripts/install_linux.sh`
    - **Windows**: `.\scripts\install_windows.ps1`
-3. **Restart your terminal**.
+3. **Follow the on-screen instructions** to add the built binary to your PATH.
 
 ## 📖 How to Use
 
