@@ -34,16 +34,46 @@ func PrepareCommitMsg(msgFile, source, sha string) error {
 
 	config, err := groveUtil.LoadConfig(cwd)
 	if err != nil {
-		// Not a grove repo or error loading config, skip
-		// fmt.Printf("Debug: Error loading config: %v\n", err)
-		if os.IsNotExist(err) || strings.Contains(err.Error(), "no such file") {
-			return nil
+		// Not a grove repo or error loading config.
+		// If working in an orphan branch (gg/<trunk>/<repoName>), config might not exist on disk,
+		// but should exist in the <trunk> branch.
+		isMissing := os.IsNotExist(err) || strings.Contains(err.Error(), "no such file")
+
+		loadedFromBranch := false
+		if isMissing {
+			// Check if we are in an orphan branch
+			currentBranch, branchErr := gitUtil.CurrentBranch(cwd)
+			if branchErr == nil && strings.HasPrefix(currentBranch, "gg/") {
+				parts := strings.Split(currentBranch, "/")
+				if len(parts) >= 3 {
+					// gg/<trunk>/<repoName> -> we need <trunk> (might contain slashes)
+					// Assumes loose structure: trunk is everything between gg/ and /<repoName>
+					// Or we can try to find config in potential trunk candidates.
+					// Simplest heuristic: <trunk> is everything in between.
+					trunk := strings.Join(parts[1:len(parts)-1], "/")
+
+					// Try to load from trunk
+					branchConfig, branchConfigErr := groveUtil.LoadConfigFromGitRef(cwd, trunk)
+					if branchConfigErr == nil {
+						config = branchConfig
+						loadedFromBranch = true
+					}
+				}
+			}
 		}
-		// Double check existence to be sure
-		if _, statErr := os.Stat(filepath.Join(cwd, ".gg", "gg.json")); os.IsNotExist(statErr) {
-			return nil
+
+		if !loadedFromBranch {
+			// If still not loaded, treat as genuine error or not initialized
+			if isMissing {
+				// Not initialized, just return
+				return nil
+			}
+			// Double check existence to be sure
+			if _, statErr := os.Stat(filepath.Join(cwd, ".gg", "gg.json")); os.IsNotExist(statErr) {
+				return nil
+			}
+			return err
 		}
-		return err
 	}
 
 	// fmt.Printf("Debug: Config loaded. AtomicCommit: %v\n", config.AtomicCommit)

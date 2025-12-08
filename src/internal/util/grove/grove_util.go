@@ -126,6 +126,26 @@ func LoadConfig(ggRootPath string) (*GGConfig, error) {
 	return &config, nil
 }
 
+// LoadConfigFromGitRef reads the gg.json configuration from a specific git reference (branch/commit).
+func LoadConfigFromGitRef(ggRootPath string, ref string) (*GGConfig, error) {
+	configPath := ".gg/gg.json"
+	data, err := gitUtil.ReadFileFromBranch(ggRootPath, ref, configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read gg.json from ref %s: %w", ref, err)
+	}
+
+	var config GGConfig
+	if err := json.Unmarshal(data, &config); err != nil {
+		return nil, fmt.Errorf("failed to parse gg.json from ref %s: %w", ref, err)
+	}
+
+	if config.Repositories == nil {
+		config.Repositories = make(map[string]model.GGRepo)
+	}
+
+	return &config, nil
+}
+
 // RegisterRepoInConfig adds new repositories to the gg.json configuration.
 // It performs validation to ensure no name/path conflicts or nested repositories.
 func RegisterRepoInConfig(ggRootPath string, newRepos []model.GGRepo) error {

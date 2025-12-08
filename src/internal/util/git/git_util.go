@@ -163,3 +163,23 @@ func FileExistsInBranch(repoPath string, branchName string, filePath string) (bo
 	}
 	return true, nil
 }
+
+// ReadFileFromBranch reads the content of a file from a specific branch.
+func ReadFileFromBranch(repoPath string, branchName string, filePath string) ([]byte, error) {
+	repoPath = filepath.Clean(repoPath)
+	// format: <branch>:<path>
+	// Use git show which is convenient for cat-ing a file from a ref
+	// Note: Windows paths might need to be converted to forward slashes for git object syntax,
+	// but let's see if we can just rely on standard path refs.
+	// Git expects forward slashes for the internal path spec usually.
+	gitPath := filepath.ToSlash(filePath)
+	object := fmt.Sprintf("%s:%s", branchName, gitPath)
+
+	cmd := exec.Command("git", "show", object)
+	cmd.Dir = repoPath
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file '%s' from branch '%s': %w", filePath, branchName, err)
+	}
+	return output, nil
+}

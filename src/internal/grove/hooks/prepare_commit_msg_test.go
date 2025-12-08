@@ -102,4 +102,41 @@ func TestPrepareCommitMsg(t *testing.T) {
 	assert.NoError(t, err)
 	content, _ = os.ReadFile(msgFile)
 	assert.Equal(t, "another commit", string(content))
+	// Case 4: Orphan branch with missing .gg/gg.json but present in trunk
+	// Switch back to master (has config) to act as trunk
+	exec.Command("git", "checkout", "master").Run() // "master" is default in our test setup?
+	// Wait, we didn't explicitly name the trunk branch, just committed to it.
+	// git init likely created "master" or "main".
+	// Let's create a known trunk "trunk" with config.
+	exec.Command("git", "checkout", "-b", "trunk").Run()
+
+	// Reset config to true for this test case
+	importJSON = `{"repositories": {"repoA": {"name": "repoA", "path": "services/repoA"}}, "repo_aware_context_message": true}`
+	// Ensure config is present in trunk
+	os.WriteFile(filepath.Join(tmpDir, ".gg", "gg.json"), []byte(importJSON), 0644)
+	exec.Command("git", "add", ".").Run()
+	exec.Command("git", "commit", "-m", "add config to trunk").Run()
+
+	// Switch to orphan branch gg/trunk/repoA
+	orphanBranch := "gg/trunk/repoA"
+	exec.Command("git", "checkout", "--orphan", orphanBranch).Run()
+	// Remove all files from previous branch (standard orphan behavior usually leaves files staged)
+	// We want to simulate a clean state for the repo except for what we are working on.
+	// But in GitGrove workspace, we are in a separate worktree or clone usually.
+	// Here we simulate just missing config.
+	os.RemoveAll(filepath.Join(tmpDir, ".gg")) // Delete .gg dir
+
+	// Modify file in repoA (which is now root relative in some setups, but here we just need to match repoName)
+	// Wait, if it's orphan, EVERYTHING is the repo.
+	// PrepareCommitMsg logic: if orphan branch gg/<trunk>/<repoName>, ALWAYS prepend [repoName].
+	// It doesn't check file paths.
+
+	msgFile4 := filepath.Join(tmpDir, "COMMIT_EDITMSG_4")
+	os.WriteFile(msgFile4, []byte("orphan commit"), 0644)
+
+	err = PrepareCommitMsg(msgFile4, "", "")
+	assert.NoError(t, err)
+
+	content, _ = os.ReadFile(msgFile4)
+	assert.Equal(t, "[repoA] orphan commit", string(content))
 }
