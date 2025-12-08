@@ -22,11 +22,12 @@ You can build GitGrove for your platform (Mac, Linux, Windows) using the release
 
 ```bash
 # Builds binaries for all platforms in build/release/
+# The proper built binary needs to be renamed to "gg"
 ./scripts/build_release.sh
 ```
 
 ### 2. Install (Add to PATH)
-To make the `gg` command available everywhere, run the installation helper:
+To make the `gg` command available everywhere, run the installation helper. Make sure your binary is named gg:
 
 **Mac/Linux:**
 ```bash
