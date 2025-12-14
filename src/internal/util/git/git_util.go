@@ -236,10 +236,10 @@ func UnsetLocalConfig(repoPath string, key string) error {
 // efficient for switching contexts.
 func Clean(repoPath string) error {
 	repoPath = filepath.Clean(repoPath)
-	cmd := exec.Command("git", "clean", "-fd")
+	cmd := exec.Command("git", "clean", "-fdx")
 	cmd.Dir = repoPath
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("git clean -fd failed: %s: %w", string(output), err)
+		return fmt.Errorf("git clean -fdx failed: %s: %w", string(output), err)
 	}
 	return nil
 }

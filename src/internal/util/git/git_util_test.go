@@ -33,6 +33,11 @@ func TestClean(t *testing.T) {
 	assert.FileExists(t, untrackedFile)
 	assert.DirExists(t, untrackedDir)
 
+	// Add .gitignore and an ignored file
+	os.WriteFile(filepath.Join(tmpDir, ".gitignore"), []byte("ignored.txt"), 0644)
+	ignoredFile := filepath.Join(tmpDir, "ignored.txt")
+	os.WriteFile(ignoredFile, []byte("ignored"), 0644)
+
 	// Execute Clean
 	err = Clean(tmpDir)
 	assert.NoError(t, err)
@@ -40,4 +45,8 @@ func TestClean(t *testing.T) {
 	// Verify they are gone
 	assert.NoFileExists(t, untrackedFile)
 	assert.NoDirExists(t, untrackedDir)
+
+	// This assertion is expected to FAIL with current implementation (-fd) which keeps ignored files
+	// If the user wants "dirs and all" gone, they imply ignored files too.
+	assert.NoFileExists(t, ignoredFile)
 }
