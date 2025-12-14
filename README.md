@@ -93,6 +93,7 @@ To work on a specific repository using its isolated history:
     git commit -m "My new feature"
     ```
     *   **Context Aware**: If configured, `gg` will automatically prepend `[service-a]` to your message.
+    *   **Sticky Context** (New): If you checkout a repo via the TUI, you can freely create feature branches (e.g., `git checkout -b feature/login`) and your commits will *still* be automatically prefixed.
     *   **Atomic Check**: If you somehow staged files from outside the scope (unlikely in orphan branch, but possible in Trunk), `gg` will block the commit.
 
 ### 4. Merging Back (Integration)
