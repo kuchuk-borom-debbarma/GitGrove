@@ -224,7 +224,7 @@ func UnsetLocalConfig(repoPath string, key string) error {
 	repoPath = filepath.Clean(repoPath)
 	cmd := exec.Command("git", "config", "--local", "--unset", key)
 	cmd.Dir = repoPath
-	if output, err := cmd.CombinedOutput(); err != nil {
+	if _, err := cmd.CombinedOutput(); err != nil {
 		// Ignore check for now if it doesn't exist, or check exit code?
 		// git config --unset returns 5 if key doesn't exist
 		return nil

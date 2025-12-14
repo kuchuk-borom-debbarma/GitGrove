@@ -12,7 +12,6 @@ import (
 )
 
 // IsGroveInitialized checks if the .gg directory and configuration file exist.
-// IsGroveInitialized checks if the .gg directory and configuration file exist.
 func IsGroveInitialized(path string) error {
 	// 1. Check local file system
 	configPath := filepath.Join(path, ".gg", "gg.json")
