@@ -8,8 +8,9 @@ By using GitGrove, developers can enjoy the "feel" of working in a small, isolat
 
 *   **Modular Monorepo**: Manage distinct projects (`services/a`, `lib/b`) as if they were separate repos.
 *   **The TUI**: A terminal user interface to manage the complex states easily.
-*   **History Isolation**: Work on orphan branches that contain *only* the files for your specific project.
-*   **Context Aware Commits**: Automatically prefixes commit messages (e.g., `[ServiceA] Fix bug`) when you commit changes scoped to a single repo.
+*   **Isolate & Focus**: Work on a single folder as if it were a standalone repository.
+*   **Sync from Trunk**: Easily pull the latest changes from the main monorepo branch into your isolated workspace.
+*   **Context-Aware Commits**: Commits are automatically prefixed with the component name (e.g., `[service-a] feat: new API`).
 *   **Atomic Commit Enforcement**: Prevents "spaghetti history" by blocking commits that touch multiple registered repositories simultaneously.
 *   **Safe Integration**: Automates the complex process of merging isolated history back into the main monorepo trunk.
 
@@ -67,24 +68,34 @@ Simply run `gg` in your repo folder. If it's not initialized, you will be prompt
 ### 2. Registering a Repository
 Slice a sub-folder into its own logical repository.
 
-*Currently, registration is done via the TUI.*
+**Using CLI:**
+```bash
+gg register <repo-name> <relative-path>
+# Example: gg register service-a backend/service-a
+```
 
+**Using TUI:**
 1.  Run `gg`.
 2.  Select **"Register Repo"**.
 3.  Enter the name (e.g., `service-a`) and the relative path (e.g., `backend/service-a`).
-4.  GitGrove will:
-    *   Update configuration.
-    *   Create an **orphan branch** (`gg/main/service-a`) containing only that folder's history.
+
+GitGrove will:
+*   Update configuration (`gg.json`).
+*   Create an **orphan branch** (`gg/<trunk>/<repoName>`) containing only that folder's history.
 
 ### 3. The Workflow (Development)
 
 To work on a specific repository using its isolated history:
 
-1.  Checkout the orphan branch:
+1.  **Checkout the orphan branch**:
+    
+    **Using CLI:**
     ```bash
-    git checkout gg/main/service-a
+    gg checkout <repo-name>
     ```
-    *(Or check the TUI for branch names)*
+
+    **Using TUI:**
+    Select **"Checkout Repo Branch"** and choose the repository.
 
 2.  **Work as normal!** You will see only the files for `service-a` at the root level.
 3.  **Commit**:
@@ -96,7 +107,31 @@ To work on a specific repository using its isolated history:
     *   **Sticky Context** (New): If you checkout a repo via the TUI, you can freely create feature branches (e.g., `git checkout -b feature/login`) and your commits will *still* be automatically prefixed.
     *   **Atomic Check**: If you somehow staged files from outside the scope (unlikely in orphan branch, but possible in Trunk), `gg` will block the commit.
 
-### 4. Merging Back (Integration)
+### 4. Return to Trunk
+When you are done, simply switch back to the main branch.
+
+**Using CLI:**
+```bash
+gg trunk
+```
+
+**Using TUI:**
+Select **"Return to Trunk"**.
+
+### 5. Syncing with Trunk
+If updates have been made to your component in the main branch (e.g., by other team members), you can pull them into your isolated workspace:
+
+**Using CLI:**
+```bash
+gg sync
+```
+
+**Using TUI:**
+1.  Inside your orphan branch, select **"Sync from Trunk"**.
+
+GitGrove will fetch the latest changes for your specific folder from the trunk and merge them into your workspace.
+
+### 6. Merging Back (Integration)
 
 When your feature is ready to be merged back into the main trunk:
 

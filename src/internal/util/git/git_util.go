@@ -226,8 +226,46 @@ func UnsetLocalConfig(repoPath string, key string) error {
 	cmd.Dir = repoPath
 	if _, err := cmd.CombinedOutput(); err != nil {
 		// Ignore check for now if it doesn't exist, or check exit code?
-		// git config --unset returns 5 if key doesn't exist
-		return nil
+	}
+	return nil
+}
+
+// SubtreeSplitFrom creates a new branch using git subtree split from a specific tree/commit.
+func SubtreeSplitFrom(repoPath string, prefix string, sourceRef string, branchName string) error {
+	repoPath = filepath.Clean(repoPath)
+	prefix = filepath.Clean(prefix)
+	// git subtree split --prefix=<prefix> -b <branchName> <sourceRef>
+	cmd := exec.Command("git", "subtree", "split", "--prefix="+prefix, "-b", branchName, sourceRef)
+	cmd.Dir = repoPath
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git subtree split from %s failed: %s: %w", sourceRef, string(output), err)
+	}
+	return nil
+}
+
+// Merge merges the specified branch into the current branch.
+func Merge(repoPath string, branchName string) error {
+	repoPath = filepath.Clean(repoPath)
+	// git merge --allow-unrelated-histories <branchName>
+	cmd := exec.Command("git", "merge", "--allow-unrelated-histories", branchName)
+	cmd.Dir = repoPath
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git merge failed: %s: %w", string(output), err)
+	}
+	return nil
+}
+
+// DeleteBranch deletes the specified branch.
+func DeleteBranch(repoPath string, branchName string, force bool) error {
+	repoPath = filepath.Clean(repoPath)
+	flag := "-d"
+	if force {
+		flag = "-D"
+	}
+	cmd := exec.Command("git", "branch", flag, branchName)
+	cmd.Dir = repoPath
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git branch %s %s failed: %s: %w", flag, branchName, string(output), err)
 	}
 	return nil
 }
@@ -236,10 +274,13 @@ func UnsetLocalConfig(repoPath string, key string) error {
 // efficient for switching contexts.
 func Clean(repoPath string) error {
 	repoPath = filepath.Clean(repoPath)
+	// git clean -fdx
+	// We use -f -d -x to remove untracked files, directories, and ignored files
 	cmd := exec.Command("git", "clean", "-fdx")
 	cmd.Dir = repoPath
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("git clean -fdx failed: %s: %w", string(output), err)
 	}
+	// Maybe log success if needed, but silent is fine for success.
 	return nil
 }

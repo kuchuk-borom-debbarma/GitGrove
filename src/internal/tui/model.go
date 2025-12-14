@@ -107,8 +107,9 @@ func InitialModel(buildTime string) Model {
 		descriptions["Open Repository"] = "Open an existing GitGrove repository located elsewhere."
 	} else {
 		if isOrphan {
-			mainChoices = []string{"Prepare Merge", "Return to Trunk", "Quit"}
+			mainChoices = []string{"Prepare Merge", "Sync from Trunk", "Return to Trunk", "Quit"}
 			descriptions["Prepare Merge"] = "Prepare the current orphan branch for merging back into the trunk."
+			descriptions["Sync from Trunk"] = "Merge latest changes from the trunk (for this component) into current branch."
 			descriptions["Return to Trunk"] = fmt.Sprintf("Checkout the trunk branch (%s) and leave the orphan state.", trunkBranch)
 		} else {
 			mainChoices = []string{"View Repos", "Register Repo", "Checkout Repo Branch", "Quit"}

@@ -11,6 +11,7 @@ import (
 	"github.com/kuchuk-borom-debbarma/GitGrove/src/internal/grove/initialize"
 	preparemerge "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/grove/prepare-merge"
 	registerrepo "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/grove/register-repo"
+	grovesync "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/grove/sync"
 	gitUtil "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/util/git"
 	groveUtil "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/util/grove"
 	"github.com/kuchuk-borom-debbarma/GitGrove/src/model"
@@ -148,7 +149,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							} else {
 								m.repoInfo = fmt.Sprintf("Orphan Branch: %s", currentBranch)
 							}
-							m.choices = []string{"Prepare Merge", "Return to Trunk", "Quit"}
+							m.choices = []string{"Prepare Merge", "Sync from Trunk", "Return to Trunk", "Quit"}
 						} else {
 							m.isOrphan = false
 							m.repoInfo = getTrunkContextInfo(path, currentBranch)
@@ -344,6 +345,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 					// If not orphan, something is weird because this option should only be available in orphan state.
 					m.err = fmt.Errorf("prepare merge only available in orphan branches")
+					return m, nil
+
+					m.err = fmt.Errorf("prepare merge only available in orphan branches")
+					return m, nil
+
+				case "Sync from Trunk":
+					// Sync implementation:
+					// 1. Check if orphan
+					if !m.isOrphan {
+						m.err = fmt.Errorf("sync only available in orphan branches")
+						return m, nil
+					}
+					// 2. Call SyncOrphanFromTrunk
+					if err := grovesync.SyncOrphanFromTrunk(m.path, "", m.trunkBranch, m.orphanRepoName); err != nil {
+						m.err = err
+					} else {
+						m.repoInfo = "Success: Synced from trunk"
+					}
 					return m, nil
 
 				case "Return to Trunk":
@@ -626,7 +645,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.orphanRepoName = repoName
 						m.trunkBranch = currentBranch
 						m.repoInfo = fmt.Sprintf("Orphan Branch: %s (Trunk: %s)", repoName, currentBranch)
-						m.choices = []string{"Prepare Merge", "Return to Trunk", "Quit"}
+						m.choices = []string{"Prepare Merge", "Sync from Trunk", "Return to Trunk", "Quit"}
 						m.state = StateIdle
 					}
 				}

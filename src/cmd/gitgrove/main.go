@@ -8,7 +8,12 @@ import (
 	"github.com/kuchuk-borom-debbarma/GitGrove/src/internal/grove/hooks"
 	"github.com/kuchuk-borom-debbarma/GitGrove/src/internal/grove/initialize"
 	preparemerge "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/grove/prepare-merge"
+	registerrepo "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/grove/register-repo"
+	grovesync "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/grove/sync"
 	"github.com/kuchuk-borom-debbarma/GitGrove/src/internal/tui"
+	gitUtil "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/util/git"
+	groveUtil "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/util/grove"
+	"github.com/kuchuk-borom-debbarma/GitGrove/src/model"
 )
 
 var BuildTime = "unknown"
@@ -83,6 +88,87 @@ func main() {
 				fmt.Fprintf(os.Stderr, "Error preparing merge: %v\n", err)
 				os.Exit(1)
 			}
+			os.Exit(0)
+		case "register":
+			if len(os.Args) < 4 {
+				fmt.Println("Usage: gg register <name> <path>")
+				os.Exit(1)
+			}
+			cwd, _ := os.Getwd()
+			name := os.Args[2]
+			path := os.Args[3]
+			repo := model.GGRepo{Name: name, Path: path}
+			if err := registerrepo.RegisterRepo([]model.GGRepo{repo}, cwd); err != nil {
+				fmt.Fprintf(os.Stderr, "Error registering repo: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Printf("Successfully registered repo '%s'\n", name)
+			os.Exit(0)
+		case "checkout":
+			if len(os.Args) < 3 {
+				fmt.Println("Usage: gg checkout <repo-name>")
+				os.Exit(1)
+			}
+			cwd, _ := os.Getwd()
+			repoName := os.Args[2]
+
+			// Determine Trunk
+			trunk, err := groveUtil.GetContextTrunk(cwd)
+			if err != nil || trunk == "" {
+				// Try falling back to current branch if we are on trunk
+				cb, _ := gitUtil.CurrentBranch(cwd)
+				if cb != "" {
+					trunk = cb
+				} else {
+					fmt.Fprintf(os.Stderr, "Error: Could not determine trunk branch. Ensure you are in a GitGrove workspace.\n")
+					os.Exit(1)
+				}
+			}
+
+			// Construct target branch: gg/<trunk>/<repo>
+			targetBranch := fmt.Sprintf("gg/%s/%s", trunk, repoName)
+
+			if err := gitUtil.Checkout(cwd, targetBranch); err != nil {
+				fmt.Fprintf(os.Stderr, "Error checking out %s: %v\n", targetBranch, err)
+				os.Exit(1)
+			}
+
+			// Clean artifacts
+			if err := gitUtil.Clean(cwd); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: Checkout succeeded but clean failed: %v\n", err)
+			}
+
+			// Set sticky context
+			_ = groveUtil.SetContextRepo(cwd, repoName)
+			_ = groveUtil.SetContextTrunk(cwd, trunk)
+
+			fmt.Printf("Switched to orphan branch: %s\n", targetBranch)
+			os.Exit(0)
+		case "sync":
+			cwd, _ := os.Getwd()
+			// Let SyncOrphanFromTrunk infer context
+			if err := grovesync.SyncOrphanFromTrunk(cwd, "", "", ""); err != nil {
+				fmt.Fprintf(os.Stderr, "Error syncing from trunk: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Println("Successfully synced from trunk.")
+			os.Exit(0)
+		case "trunk":
+			cwd, _ := os.Getwd()
+			trunk, err := groveUtil.GetContextTrunk(cwd)
+			if err != nil || trunk == "" {
+				fmt.Fprintf(os.Stderr, "Error: Unknown trunk branch. Are you in a GitGrove orphan branch?\n")
+				os.Exit(1)
+			}
+			if err := gitUtil.Checkout(cwd, trunk); err != nil {
+				fmt.Fprintf(os.Stderr, "Error returning to trunk: %v\n", err)
+				os.Exit(1)
+			}
+			// Clear context
+			groveUtil.ClearContextRepo(cwd)
+			groveUtil.ClearContextTrunk(cwd)
+
+			fmt.Printf("Returned to trunk branch: %s\n", trunk)
 			os.Exit(0)
 		}
 	}
