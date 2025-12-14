@@ -231,3 +231,15 @@ func UnsetLocalConfig(repoPath string, key string) error {
 	}
 	return nil
 }
+
+// Clean removes untracked files and directories from the working tree.
+// efficient for switching contexts.
+func Clean(repoPath string) error {
+	repoPath = filepath.Clean(repoPath)
+	cmd := exec.Command("git", "clean", "-fd")
+	cmd.Dir = repoPath
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git clean -fd failed: %s: %w", string(output), err)
+	}
+	return nil
+}

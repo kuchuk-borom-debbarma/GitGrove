@@ -600,6 +600,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if err := gitUtil.Checkout(m.path, targetBranch); err != nil {
 						m.err = fmt.Errorf("failed to checkout %s: %v", targetBranch, err)
 					} else {
+						// Clean untracked files from previous context
+						if err := gitUtil.Clean(m.path); err != nil {
+							// Warning state? For now just log err or ignore?
+							// Better to let user know?
+							// Let's treat it as non-fatal but info.
+							// For now, m.err = err?
+							// But checkout succeeded.
+							// Maybe append to repoInfo or a temp message?
+							// Let's log to err to be safe.
+							m.err = fmt.Errorf("checkout success, but failed to clean: %v", err)
+						}
+
 						// Set sticky context
 						groveUtil.SetContextRepo(m.path, repoName)
 
