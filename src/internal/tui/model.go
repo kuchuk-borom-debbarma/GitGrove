@@ -521,6 +521,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if err := gitUtil.Checkout(m.path, m.trunkBranch); err != nil {
 						m.err = fmt.Errorf("failed to checkout trunk: %v", err)
 					} else {
+						// Clear sticky context
+						groveUtil.ClearContextRepo(m.path)
+
 						// Checked out successfully.
 						// Re-evaluate context.
 						// Or just assume we are back to trunk.
@@ -764,6 +767,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if err := gitUtil.Checkout(m.path, targetBranch); err != nil {
 						m.err = fmt.Errorf("failed to checkout %s: %v", targetBranch, err)
 					} else {
+						// Set sticky context
+						groveUtil.SetContextRepo(m.path, repoName)
+
 						m.isOrphan = true
 						m.orphanRepoName = repoName
 						m.trunkBranch = currentBranch

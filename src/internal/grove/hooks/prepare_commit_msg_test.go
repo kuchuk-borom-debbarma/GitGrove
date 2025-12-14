@@ -139,4 +139,21 @@ func TestPrepareCommitMsg(t *testing.T) {
 
 	content, _ = os.ReadFile(msgFile4)
 	assert.Equal(t, "[repoA] orphan commit", string(content))
+
+	// Case 5: Sticky Context Logic
+	// Switch to a new branch off trunk (no orphan prefix)
+	exec.Command("git", "checkout", "trunk").Run()
+	exec.Command("git", "checkout", "-b", "feature/sticky-test").Run()
+
+	// Set sticky context
+	exec.Command("git", "config", "--local", "gitgrove.context.repo", "repoA").Run()
+
+	msgFile5 := filepath.Join(tmpDir, "COMMIT_EDITMSG_5")
+	os.WriteFile(msgFile5, []byte("sticky commit"), 0644)
+
+	err = PrepareCommitMsg(msgFile5, "", "")
+	assert.NoError(t, err)
+
+	content, _ = os.ReadFile(msgFile5)
+	assert.Equal(t, "[repoA] sticky commit", string(content))
 }

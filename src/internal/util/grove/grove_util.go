@@ -237,3 +237,18 @@ func AddReposToConfig(ggRootPath string, newRepos []model.GGRepo) error {
 
 	return nil
 }
+
+// SetContextRepo sets the gitgrove.context.repo config to the specified repository name.
+func SetContextRepo(ggRepoPath string, repoName string) error {
+	return gitUtil.SetLocalConfig(ggRepoPath, "gitgrove.context.repo", repoName)
+}
+
+// GetContextRepo gets the repository name from gitgrove.context.repo config.
+func GetContextRepo(ggRepoPath string) (string, error) {
+	return gitUtil.GetLocalConfig(ggRepoPath, "gitgrove.context.repo")
+}
+
+// ClearContextRepo removes the gitgrove.context.repo config.
+func ClearContextRepo(ggRepoPath string) error {
+	return gitUtil.UnsetLocalConfig(ggRepoPath, "gitgrove.context.repo")
+}

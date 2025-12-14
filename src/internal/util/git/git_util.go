@@ -193,3 +193,41 @@ func ReadFileFromBranch(repoPath string, branchName string, filePath string) ([]
 	}
 	return output, nil
 }
+
+// SetLocalConfig sets a local git configuration value.
+func SetLocalConfig(repoPath string, key string, value string) error {
+	repoPath = filepath.Clean(repoPath)
+	cmd := exec.Command("git", "config", "--local", key, value)
+	cmd.Dir = repoPath
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to set config %s=%s: %s: %w", key, value, string(output), err)
+	}
+	return nil
+}
+
+// GetLocalConfig gets a local git configuration value. Returns empty string if not found.
+func GetLocalConfig(repoPath string, key string) (string, error) {
+	repoPath = filepath.Clean(repoPath)
+	cmd := exec.Command("git", "config", "--local", "--get", key)
+	cmd.Dir = repoPath
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// git config returns exit code 1 if key is not found
+		// We treat this as empty value, not error
+		return "", nil
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+// UnsetLocalConfig removes a local git configuration value.
+func UnsetLocalConfig(repoPath string, key string) error {
+	repoPath = filepath.Clean(repoPath)
+	cmd := exec.Command("git", "config", "--local", "--unset", key)
+	cmd.Dir = repoPath
+	if output, err := cmd.CombinedOutput(); err != nil {
+		// Ignore check for now if it doesn't exist, or check exit code?
+		// git config --unset returns 5 if key doesn't exist
+		return nil
+	}
+	return nil
+}

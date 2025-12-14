@@ -87,6 +87,14 @@ func PrepareCommitMsg(msgFile, source, sha string) error {
 		return nil
 	}
 
+	// 0. Sticky Context Logic (Priority 0)
+	stickyRepo, _ := groveUtil.GetContextRepo(root)
+	if stickyRepo != "" {
+		if _, exists := config.Repositories[stickyRepo]; exists {
+			return prependRepoName(msgFile, stickyRepo)
+		}
+	}
+
 	// 1. Orphan Branch Logic (Priority)
 	currentBranch, err := gitUtil.CurrentBranch(root)
 	if err == nil && strings.HasPrefix(currentBranch, "gg/") {
