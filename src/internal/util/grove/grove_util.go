@@ -251,3 +251,18 @@ func GetContextRepo(ggRepoPath string) (string, error) {
 func ClearContextRepo(ggRepoPath string) error {
 	return gitUtil.UnsetLocalConfig(ggRepoPath, "gitgrove.context.repo")
 }
+
+// SetContextTrunk sets the gitgrove.context.trunk config to the specified branch name.
+func SetContextTrunk(ggRepoPath string, trunkName string) error {
+	return gitUtil.SetLocalConfig(ggRepoPath, "gitgrove.context.trunk", trunkName)
+}
+
+// GetContextTrunk gets the trunk branch name from gitgrove.context.trunk config.
+func GetContextTrunk(ggRepoPath string) (string, error) {
+	return gitUtil.GetLocalConfig(ggRepoPath, "gitgrove.context.trunk")
+}
+
+// ClearContextTrunk removes the gitgrove.context.trunk config.
+func ClearContextTrunk(ggRepoPath string) error {
+	return gitUtil.UnsetLocalConfig(ggRepoPath, "gitgrove.context.trunk")
+}

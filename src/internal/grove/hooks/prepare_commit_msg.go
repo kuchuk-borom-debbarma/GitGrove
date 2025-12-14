@@ -64,6 +64,17 @@ func PrepareCommitMsg(msgFile, source, sha string) error {
 						loadedFromBranch = true
 					}
 				}
+			} else {
+				// Sticky Context Logic for Trunk config loading
+				// If not an orphan branch (e.g. feature branch off orphan), try to find trunk from sticky config
+				stickyTrunk, _ := groveUtil.GetContextTrunk(root)
+				if stickyTrunk != "" {
+					branchConfig, branchConfigErr := groveUtil.LoadConfigFromGitRef(root, stickyTrunk)
+					if branchConfigErr == nil {
+						config = branchConfig
+						loadedFromBranch = true
+					}
+				}
 			}
 		}
 

@@ -356,6 +356,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					} else {
 						// Clear sticky context
 						groveUtil.ClearContextRepo(m.path)
+						groveUtil.ClearContextTrunk(m.path)
 
 						// Checked out successfully.
 						// Re-evaluate context.
@@ -613,7 +614,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						}
 
 						// Set sticky context
-						groveUtil.SetContextRepo(m.path, repoName)
+						if err := groveUtil.SetContextRepo(m.path, repoName); err != nil {
+							m.err = fmt.Errorf("checkout success, but failed to set context: %v", err)
+						}
+						// Set sticky trunk
+						if err := groveUtil.SetContextTrunk(m.path, currentBranch); err != nil {
+							// Log error but proceed?
+						}
 
 						m.isOrphan = true
 						m.orphanRepoName = repoName
