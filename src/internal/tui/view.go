@@ -21,7 +21,7 @@ func (m Model) View() string {
 	header := titleBorderStyle.Render(
 		lipgloss.JoinVertical(lipgloss.Center,
 			titleStyle.Render("GitGrove"),
-			infoStyle.Render("v1.1 ("+m.buildTime+")"),
+			infoStyle.Render("v1.1.1 ("+m.buildTime+")"),
 		),
 	)
 

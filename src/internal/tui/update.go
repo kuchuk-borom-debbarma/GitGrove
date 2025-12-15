@@ -131,7 +131,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if err != nil {
 					// Check if error message confirms initialization
 					if err.Error() == fmt.Sprintf("gitgrove is already initialized in %s", path) ||
-						(len(err.Error()) > 30 && err.Error()[:31] == "gitgrove is already initialized") {
+						(len(err.Error()) > 30 && err.Error()[:31] == "gitgrove is already initialized") ||
+						strings.Contains(err.Error(), "sticky context") {
 						// Success
 						m.path = path
 
@@ -326,26 +327,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.textInput.Focus()
 					return m, nil
 				case "Prepare Merge":
-					// Check local context
-					branch, err := gitUtil.CurrentBranch(m.path)
-					if err != nil {
-						m.err = err
-						return m, nil
-					}
-
-					// If orphan -> prepare merge immediately
-					if len(branch) > 3 && branch[:3] == "gg/" {
-						if err := preparemerge.PrepareMerge(m.path, ""); err != nil {
+					// Allow if isOrphan is true (covers sticky context)
+					if m.isOrphan {
+						// Pass m.orphanRepoName. If empty, PrepareMerge might fail or try sticky context again.
+						// But m.orphanRepoName should be populated if isOrphan is true.
+						if err := preparemerge.PrepareMerge(m.path, m.orphanRepoName); err != nil {
 							m.err = err
 						} else {
-							m.repoInfo = "Success: Prepare-merge branch created from orphan branch"
+							m.repoInfo = "Success: Prepare-merge branch created"
 							m.state = StateIdle
+							// We might want to refresh model state here as checkouts happened?
+							// The user is now on prepare-merge branch.
+							// Sticky context should have been set by PrepareMerge.
+							// So next TUI loop/restart will pick it up.
+							// But for now, we just stay in IDLE.
 						}
 						return m, nil
 					}
-					// If not orphan, something is weird because this option should only be available in orphan state.
-					m.err = fmt.Errorf("prepare merge only available in orphan branches")
-					return m, nil
 
 					m.err = fmt.Errorf("prepare merge only available in orphan branches")
 					return m, nil
@@ -365,6 +363,37 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 					return m, nil
 
+				case "Return to Orphan Branch":
+					if m.orphanBranch == "" {
+						m.err = fmt.Errorf("unknown orphan branch context")
+						return m, nil
+					}
+					if err := gitUtil.Checkout(m.path, m.orphanBranch); err != nil {
+						m.err = fmt.Errorf("failed to checkout orphan branch: %v", err)
+					} else {
+						// We don't clear context because we are still in the orphan context!
+						// Just need to refresh view
+						m.repoInfo = fmt.Sprintf("Returned to %s", m.orphanRepoName)
+						// Refresh choices (will hide Return to Orphan since we are there)
+						// We need to re-init choices logic?
+						// Actually Model update happens in Update?
+						// We need to valid choices again.
+						// Similar to logic in NewModel... but we are updating m.
+						// Let's duplicate basic choice logic here or trigger a state refresh?
+						// For now manual update of choices:
+						m.choices = []string{"Sync from Trunk", "Prepare Merge", "Return to Trunk", "Quit"}
+						m.descriptions["Return to Orphan Branch"] = "" // Clear old if needed? Map persists.
+						// Re-set default descriptions
+						m.descriptions = map[string]string{
+							"Sync from Trunk": "Merge latest changes from the trunk (for this component) into current branch.",
+							"Prepare Merge":   "Prepares work for integration into the Trunk.",
+							"Return to Trunk": "Switch back to main branch",
+							"Quit":            "Exit the GitGrove application.",
+						}
+						m.state = StateIdle
+					}
+					return m, nil
+
 				case "Return to Trunk":
 					if m.trunkBranch == "" {
 						m.err = fmt.Errorf("unknown trunk branch")
@@ -374,8 +403,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.err = fmt.Errorf("failed to checkout trunk: %v", err)
 					} else {
 						// Clear sticky context
-						groveUtil.ClearContextRepo(m.path)
-						groveUtil.ClearContextTrunk(m.path)
+						groveUtil.ClearAllContext(m.path)
 
 						// Checked out successfully.
 						// Re-evaluate context.
@@ -640,9 +668,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						if err := groveUtil.SetContextTrunk(m.path, currentBranch); err != nil {
 							// Log error but proceed?
 						}
+						// Set sticky orphan branch (the one we just checked out)
+						if err := groveUtil.SetContextOrphan(m.path, targetBranch); err != nil {
+							m.err = fmt.Errorf("checkout success, but failed to set orphan context: %v", err)
+						}
 
 						m.isOrphan = true
 						m.orphanRepoName = repoName
+						m.orphanBranch = targetBranch
+						m.trunkBranch = currentBranch
 						m.trunkBranch = currentBranch
 						m.repoInfo = fmt.Sprintf("Orphan Branch: %s (Trunk: %s)", repoName, currentBranch)
 						m.choices = []string{"Prepare Merge", "Sync from Trunk", "Return to Trunk", "Quit"}

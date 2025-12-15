@@ -42,6 +42,7 @@ type Model struct {
 	isOrphan         bool     // True if in orphan branch
 	orphanRepoName   string   // Name of repo if in orphan branch
 	trunkBranch      string   // Name of trunk branch if in orphan branch
+	orphanBranch     string   // The original orphan branch name (e.g. gg/main/service-a)
 	suggestions      []string // Autocompletion suggestions
 	suggestionCursor int      // Selected suggestion index
 	buildTime        string   // Build time of the binary
@@ -53,7 +54,7 @@ func InitialModel(buildTime string) Model {
 	initialState := StateInit
 	var repoInfo string
 	var isOrphan bool
-	var orphanRepoName, trunkBranch string
+	var orphanRepoName, trunkBranch, orphanName, currentBranch string // Hoisted currentBranch
 
 	// Check initialization status (returns error if initialized)
 	errInit := groveUtil.IsGroveInitialized(cwd)
@@ -61,7 +62,8 @@ func InitialModel(buildTime string) Model {
 	if errInit != nil {
 		initialState = StateIdle
 		// Determine context: Trunk or Orphan?
-		currentBranch, err := gitUtil.CurrentBranch(cwd)
+		var err error
+		currentBranch, err = gitUtil.CurrentBranch(cwd)
 		if err == nil {
 			// Check for Orphan Pattern: gg/<trunk>/<repoName>
 			// We can use the same logic as in grove_util or prepare_merge
@@ -75,8 +77,11 @@ func InitialModel(buildTime string) Model {
 					orphanRepoName = parts[len(parts)-1]
 					trunkBranch = strings.Join(parts[1:len(parts)-1], "/")
 					repoInfo = fmt.Sprintf("Orphan Branch: %s (Trunk: %s)", orphanRepoName, trunkBranch)
+					// Inferred orphan branch name if we are on it
+					orphanName = currentBranch
 				} else {
 					repoInfo = fmt.Sprintf("Orphan Branch: %s", currentBranch)
+					orphanName = currentBranch
 				}
 			} else {
 				// Trunk context
@@ -88,6 +93,25 @@ func InitialModel(buildTime string) Model {
 	} else {
 		// Not initialized
 		initialState = StateInit
+	}
+
+	// Try to overwrite with sticky context if available (more reliable for deep branches)
+	if stickyOrphan, err := groveUtil.GetContextOrphan(cwd); err == nil && stickyOrphan != "" {
+		orphanName = stickyOrphan
+		// If we are deep, isOrphan might be false from prefix check, but sticky says we are in an orphan workflow.
+		// So strict prefix check `if len(branch) > 3` above might be failing for `feat/foo`.
+		// We should trust sticky context.
+		if !isOrphan {
+			isOrphan = true
+			// We need to fetch other context too if not already set
+			if stickyRepo, err := groveUtil.GetContextRepo(cwd); err == nil {
+				orphanRepoName = stickyRepo
+			}
+			if stickyTrunk, err := groveUtil.GetContextTrunk(cwd); err == nil {
+				trunkBranch = stickyTrunk
+			}
+			repoInfo = fmt.Sprintf("Feature Branch: %s (Root: %s)", currentBranch, orphanRepoName)
+		}
 	}
 
 	ti := textinput.New()
@@ -107,10 +131,30 @@ func InitialModel(buildTime string) Model {
 		descriptions["Open Repository"] = "Open an existing GitGrove repository located elsewhere."
 	} else {
 		if isOrphan {
-			mainChoices = []string{"Prepare Merge", "Sync from Trunk", "Return to Trunk", "Quit"}
-			descriptions["Prepare Merge"] = "Prepare the current orphan branch for merging back into the trunk."
+			mainChoices = []string{"Sync from Trunk", "Prepare Merge", "Return to Trunk", "Quit"}
 			descriptions["Sync from Trunk"] = "Merge latest changes from the trunk (for this component) into current branch."
+			descriptions["Prepare Merge"] = "Prepare the current orphan branch for merging back into the trunk."
 			descriptions["Return to Trunk"] = fmt.Sprintf("Checkout the trunk branch (%s) and leave the orphan state.", trunkBranch)
+
+			// If we are deep in a feature branch (i.e., current branch != original orphan branch),
+			// offer direct return to orphan.
+			currentBranch, _ := gitUtil.CurrentBranch(cwd)
+			// We have orphanName from earlier logic, but we need the full orphan branch name.
+			// Earlier we set `m.orphanBranch`? No, we set top-level variable.
+			// Let's ensure we use the local variable `orphanName` which we read from config.
+			// Wait, in InitialModel we read `orphanName` from `GetContextOrphan`.
+
+			// If we are relying on TUI detection logic:
+			if isOrphan && currentBranch != strings.Join([]string{"gg", trunkBranch, orphanRepoName}, "/") {
+				// Logic mismatch.
+			}
+			// Better: use the one we read from config.
+			if orphanName != "" && currentBranch != orphanName {
+				// Prepend or Append? "Return to Orphan Branch"
+				// Let's put it before Return to Trunk
+				mainChoices = []string{"Sync from Trunk", "Prepare Merge", "Return to Orphan Branch", "Return to Trunk", "Quit"}
+				descriptions["Return to Orphan Branch"] = "Discard feature branch & return to component root"
+			}
 		} else {
 			mainChoices = []string{"View Repos", "Register Repo", "Checkout Repo Branch", "Quit"}
 			descriptions["View Repos"] = "View a list of all registered repositories in this workspace."
@@ -129,6 +173,7 @@ func InitialModel(buildTime string) Model {
 		isOrphan:         isOrphan,
 		orphanRepoName:   orphanRepoName,
 		trunkBranch:      trunkBranch,
+		orphanBranch:     orphanName,
 		descriptions:     descriptions,
 		suggestionCursor: -1,
 		buildTime:        buildTime,

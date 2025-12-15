@@ -23,7 +23,7 @@ You can install GitGrove by downloading a pre-built release or by building from 
 ### Option 1: Pre-built Release (Recommended)
 This is the easiest way to get started.
 
-1. **Download** the latest release `.zip` for your OS from the Releases page.
+1. **Download** the latest release (`v1.1.1`) .zip for your OS from the Releases page.
 2. **Extract** the archive.
 3. **Add the binary to your PATH**:
    - **MacOS/Linux**: Move the `gg` binary to `/usr/local/bin` (or another directory in your PATH).

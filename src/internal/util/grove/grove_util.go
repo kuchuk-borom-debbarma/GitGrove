@@ -70,6 +70,15 @@ func IsGroveInitialized(path string) error {
 		}
 	}
 
+	// 3. sticky context check
+	// If we are deep in a feature branch off an orphan, we might not have .gg/gg.json
+	// AND the branch name might not mismatch gg/...
+	// But we might have sticky context set.
+	orphanContext, err := GetContextOrphan(path)
+	if err == nil && orphanContext != "" {
+		return fmt.Errorf("gitgrove is already initialized (sticky context: %s)", orphanContext)
+	}
+
 	return nil
 }
 
@@ -265,4 +274,27 @@ func GetContextTrunk(ggRepoPath string) (string, error) {
 // ClearContextTrunk removes the gitgrove.context.trunk config.
 func ClearContextTrunk(ggRepoPath string) error {
 	return gitUtil.UnsetLocalConfig(ggRepoPath, "gitgrove.context.trunk")
+}
+
+// SetContextOrphan sets the gitgrove.context.orphan config to the specified orphan branch name.
+func SetContextOrphan(ggRepoPath string, orphanBranch string) error {
+	return gitUtil.SetLocalConfig(ggRepoPath, "gitgrove.context.orphan", orphanBranch)
+}
+
+// GetContextOrphan gets the orphan branch name from gitgrove.context.orphan config.
+func GetContextOrphan(ggRepoPath string) (string, error) {
+	return gitUtil.GetLocalConfig(ggRepoPath, "gitgrove.context.orphan")
+}
+
+// ClearContextOrphan removes the gitgrove.context.orphan config.
+func ClearContextOrphan(ggRepoPath string) error {
+	return gitUtil.UnsetLocalConfig(ggRepoPath, "gitgrove.context.orphan")
+}
+
+// ClearAllContext removes all gitgrove context configs.
+func ClearAllContext(ggRepoPath string) error {
+	_ = ClearContextRepo(ggRepoPath)
+	_ = ClearContextTrunk(ggRepoPath)
+	_ = ClearContextOrphan(ggRepoPath)
+	return nil
 }

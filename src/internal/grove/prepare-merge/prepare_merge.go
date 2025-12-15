@@ -38,32 +38,45 @@ func PrepareMerge(ggRepoPath string, repoNameArg string) error {
 		// Orphan Branch Context: gg/<trunk>/<repoName>
 		parts := strings.Split(currentBranch, "/")
 		if len(parts) >= 3 {
-			// Expected format: gg/<trunk>/<repoName>
-			// Assuming trunk doesn't contain slashes for now, or we take parts[1]
-			// If we want to support trunk with slashes, we need to know where repoName starts.
-			// Currently register_repo uses gg/<trunk>/<repoName>.
-			// Let's assume repoName is the last part.
 			targetRepoName = parts[len(parts)-1]
 			trunkBranch = strings.Join(parts[1:len(parts)-1], "/")
 		} else {
-			// Fallback for old format or unexpected: gg/<repoName> (implied trunk=main)
 			targetRepoName = strings.TrimPrefix(currentBranch, "gg/")
 			trunkBranch = "main"
 		}
 
 		fmt.Printf("Detected orphan branch context for repo: %s (trunk: %s)\n", targetRepoName, trunkBranch)
 
+		// We need to switch to trunk branch first
 		fmt.Printf("Switching to trunk '%s'...\n", trunkBranch)
 		if err := gitUtil.Checkout(ggRepoPath, trunkBranch); err != nil {
 			return fmt.Errorf("failed to checkout trunk '%s': %w", trunkBranch, err)
 		}
 	} else {
-		// Trunk Context (or other)
-		if repoNameArg == "" {
-			return fmt.Errorf("repository name is required when not in an orphan branch")
+		// Standard Context (Trunk or Deep Feature Branch)
+		// Check for Sticky Context first
+		stickyRepo, errRepo := groveUtil.GetContextRepo(ggRepoPath)
+		stickyTrunk, errTrunk := groveUtil.GetContextTrunk(ggRepoPath)
+
+		if errRepo == nil && stickyRepo != "" && errTrunk == nil && stickyTrunk != "" {
+			// Found sticky context!
+			targetRepoName = stickyRepo
+			trunkBranch = stickyTrunk
+			fmt.Printf("Detected sticky context for repo: %s (trunk: %s)\n", targetRepoName, trunkBranch)
+
+			// Switch to trunk
+			fmt.Printf("Switching to trunk '%s'...\n", trunkBranch)
+			if err := gitUtil.Checkout(ggRepoPath, trunkBranch); err != nil {
+				return fmt.Errorf("failed to checkout trunk '%s': %w", trunkBranch, err)
+			}
+		} else {
+			// No sticky context, rely on explicit arg or assume we are ON trunk
+			if repoNameArg == "" {
+				return fmt.Errorf("repository name is required when not in an orphan branch (and no sticky context found)")
+			}
+			targetRepoName = repoNameArg
+			trunkBranch = currentBranch // We assume we are on trunk
 		}
-		targetRepoName = repoNameArg
-		trunkBranch = currentBranch // We assume we are on trunk
 	}
 
 	// 2. Validation (Now that we are potentially on Trunk)
@@ -144,6 +157,27 @@ func PrepareMerge(ggRepoPath string, repoNameArg string) error {
 		// If user was on orphan, they are now on prepare-merge branch.
 		// If user was on main, they are now on prepare-merge branch.
 		// Logic holds consistent.
+	}
+
+	// 6. Set context for the new prepare-merge branch
+	// We want the user to stay in the "orphan" feel even in prepare-merge branch?
+	// Yes, usually.
+	if err := groveUtil.SetContextRepo(ggRepoPath, targetRepoName); err != nil {
+		fmt.Printf("Warning: Failed to set sticky context repo: %v\n", err)
+	}
+	if err := groveUtil.SetContextTrunk(ggRepoPath, trunkBranch); err != nil {
+		fmt.Printf("Warning: Failed to set sticky context trunk: %v\n", err)
+	}
+	// The orphan branch logic usually points to the specific orphan branch name,
+	// but here we are in a merge-prep branch.
+	// Maybe we should point 'orphan' context to the original orphan branch name?
+	// or the prepare-merge branch itself?
+	// If we set it to prepare-merge branch, then 'Return to Orphan' will return to itself? No.
+	// If we set it to the original orphan branch, 'Return to Orphan' will go back to the source.
+	// Which is probably what we want if they want to abandon the merge prep.
+	// Let's set it to the original orphan branch name!
+	if err := groveUtil.SetContextOrphan(ggRepoPath, orphanBranchName); err != nil {
+		fmt.Printf("Warning: Failed to set sticky context orphan: %v\n", err)
 	}
 
 	return nil

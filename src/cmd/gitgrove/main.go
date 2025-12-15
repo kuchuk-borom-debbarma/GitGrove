@@ -141,6 +141,7 @@ func main() {
 			// Set sticky context
 			_ = groveUtil.SetContextRepo(cwd, repoName)
 			_ = groveUtil.SetContextTrunk(cwd, trunk)
+			_ = groveUtil.SetContextOrphan(cwd, targetBranch)
 
 			fmt.Printf("Switched to orphan branch: %s\n", targetBranch)
 			os.Exit(0)
@@ -165,8 +166,7 @@ func main() {
 				os.Exit(1)
 			}
 			// Clear context
-			groveUtil.ClearContextRepo(cwd)
-			groveUtil.ClearContextTrunk(cwd)
+			groveUtil.ClearAllContext(cwd)
 
 			fmt.Printf("Returned to trunk branch: %s\n", trunk)
 			os.Exit(0)
