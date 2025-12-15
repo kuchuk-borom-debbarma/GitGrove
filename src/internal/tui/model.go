@@ -164,7 +164,7 @@ func InitialModel(buildTime string) Model {
 	}
 	descriptions["Quit"] = "Exit the GitGrove application."
 
-	return Model{
+	m := Model{
 		state:            initialState,
 		choices:          mainChoices,
 		textInput:        ti,
@@ -177,5 +177,98 @@ func InitialModel(buildTime string) Model {
 		descriptions:     descriptions,
 		suggestionCursor: -1,
 		buildTime:        buildTime,
+	}
+
+	// Run an initial refresh to ensure all logic is consistent
+	m.Refresh()
+	return m
+}
+
+// Refresh updates the model state based on the current disk state
+func (m *Model) Refresh() {
+	// Only refresh if we are in a "viewing" state, not inputting text
+	// Actually, context can change even while inputting, but we shouldn't change critical state that disrupts input.
+	// For now, let's refresh repo info and branch status which are display-only mostly.
+
+	cwd := m.path // Use current tracked path
+	if cwd == "" {
+		cwd, _ = os.Getwd()
+	}
+
+	// Re-check init
+	if err := groveUtil.IsGroveInitialized(cwd); err == nil {
+		// Not initialized or error, maybe we lost init?
+		// If we were initialized, this is a big change.
+		// For safety, let's primarily check branch/context if we are already initialized.
+		return
+	}
+
+	// We are initialized. Check branch context.
+	currentBranch, err := gitUtil.CurrentBranch(cwd)
+	if err != nil {
+		return
+	}
+
+	var isOrphan bool
+	var orphanRepoName, trunkBranch, orphanName string
+	var repoInfo string
+
+	// Check for Orphan Pattern
+	if len(currentBranch) > 3 && currentBranch[:3] == "gg/" {
+		isOrphan = true
+		parts := strings.Split(currentBranch, "/")
+		if len(parts) >= 3 {
+			orphanRepoName = parts[len(parts)-1]
+			trunkBranch = strings.Join(parts[1:len(parts)-1], "/")
+			repoInfo = fmt.Sprintf("Orphan Branch: %s (Trunk: %s)", orphanRepoName, trunkBranch)
+			orphanName = currentBranch
+		} else {
+			repoInfo = fmt.Sprintf("Orphan Branch: %s", currentBranch)
+			orphanName = currentBranch
+		}
+	} else {
+		repoInfo = getTrunkContextInfo(cwd, currentBranch)
+	}
+
+	// Sticky context check
+	if stickyOrphan, err := groveUtil.GetContextOrphan(cwd); err == nil && stickyOrphan != "" {
+		orphanName = stickyOrphan
+		if !isOrphan {
+			isOrphan = true
+			if stickyRepo, err := groveUtil.GetContextRepo(cwd); err == nil {
+				orphanRepoName = stickyRepo
+			}
+			if stickyTrunk, err := groveUtil.GetContextTrunk(cwd); err == nil {
+				trunkBranch = stickyTrunk
+			}
+			repoInfo = fmt.Sprintf("Feature Branch: %s (Root: %s)", currentBranch, orphanRepoName)
+		}
+	}
+
+	// Update model
+	m.isOrphan = isOrphan
+	m.repoInfo = repoInfo
+	if isOrphan {
+		m.orphanRepoName = orphanRepoName
+		m.trunkBranch = trunkBranch
+		m.orphanBranch = orphanName
+	}
+
+	// Update choices based on new state ONLY if we are in StateIdle to avoid disrupting menus
+	if m.state == StateIdle {
+		if isOrphan {
+			// Update orphan choices
+			// Preserve correctness
+			if m.orphanBranch != "" && currentBranch != m.orphanBranch {
+				m.choices = []string{"Sync from Trunk", "Prepare Merge", "Return to Orphan Branch", "Return to Trunk", "Quit"}
+				m.descriptions["Return to Orphan Branch"] = "Discard feature branch & return to component root"
+			} else {
+				m.choices = []string{"Sync from Trunk", "Prepare Merge", "Return to Trunk", "Quit"}
+				delete(m.descriptions, "Return to Orphan Branch")
+			}
+		} else {
+			// Trunk choices
+			m.choices = []string{"View Repos", "Register Repo", "Checkout Repo Branch", "Quit"}
+		}
 	}
 }

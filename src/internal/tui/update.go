@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strings"
 
+	"time"
+
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/kuchuk-borom-debbarma/GitGrove/src/internal/grove/initialize"
@@ -17,14 +19,26 @@ import (
 	"github.com/kuchuk-borom-debbarma/GitGrove/src/model"
 )
 
+// TickMsg is sent to the update loop to refresh the state
+type TickMsg time.Time
+
+func doTick() tea.Cmd {
+	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+		return TickMsg(t)
+	})
+}
+
 func (m Model) Init() tea.Cmd {
-	return textinput.Blink
+	return tea.Batch(textinput.Blink, doTick())
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
+	case TickMsg:
+		m.Refresh()
+		return m, doTick()
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
@@ -33,11 +47,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			}
 		}
-
-		// case tea.PasteMsg:
-		// 	var cmd tea.Cmd
-		// 	m.textInput, cmd = m.textInput.Update(msg)
-		// 	return m, cmd
 	}
 
 	switch m.state {
