@@ -24,6 +24,7 @@ const (
 	StateRegisterRepoPath
 	StateViewRepos
 	StateRepoCheckoutSelection
+	StateConfirmReset
 )
 
 type Model struct {
@@ -131,8 +132,8 @@ func InitialModel(buildTime string) Model {
 		descriptions["Open Repository"] = "Open an existing GitGrove repository located elsewhere."
 	} else {
 		if isOrphan {
-			mainChoices = []string{"Sync from Trunk", "Prepare Merge", "Return to Trunk", "Quit"}
-			descriptions["Sync from Trunk"] = "Merge latest changes from the trunk (for this component) into current branch."
+			mainChoices = []string{"Reset to Trunk", "Prepare Merge", "Return to Trunk", "Quit"}
+			descriptions["Reset to Trunk"] = "Hard reset current branch to match trunk (WARNING: deletes local changes)."
 			descriptions["Prepare Merge"] = "Prepare the current orphan branch for merging back into the trunk."
 			descriptions["Return to Trunk"] = fmt.Sprintf("Checkout the trunk branch (%s) and leave the orphan state.", trunkBranch)
 
@@ -152,7 +153,7 @@ func InitialModel(buildTime string) Model {
 			if orphanName != "" && currentBranch != orphanName {
 				// Prepend or Append? "Return to Orphan Branch"
 				// Let's put it before Return to Trunk
-				mainChoices = []string{"Sync from Trunk", "Prepare Merge", "Return to Orphan Branch", "Return to Trunk", "Quit"}
+				mainChoices = []string{"Reset to Trunk", "Prepare Merge", "Return to Orphan Branch", "Return to Trunk", "Quit"}
 				descriptions["Return to Orphan Branch"] = "Discard feature branch & return to component root"
 			}
 		} else {
@@ -260,10 +261,10 @@ func (m *Model) Refresh() {
 			// Update orphan choices
 			// Preserve correctness
 			if m.orphanBranch != "" && currentBranch != m.orphanBranch {
-				m.choices = []string{"Sync from Trunk", "Prepare Merge", "Return to Orphan Branch", "Return to Trunk", "Quit"}
+				m.choices = []string{"Reset to Trunk", "Prepare Merge", "Return to Orphan Branch", "Return to Trunk", "Quit"}
 				m.descriptions["Return to Orphan Branch"] = "Discard feature branch & return to component root"
 			} else {
-				m.choices = []string{"Sync from Trunk", "Prepare Merge", "Return to Trunk", "Quit"}
+				m.choices = []string{"Reset to Trunk", "Prepare Merge", "Return to Trunk", "Quit"}
 				delete(m.descriptions, "Return to Orphan Branch")
 			}
 		} else {

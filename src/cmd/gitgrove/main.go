@@ -145,14 +145,14 @@ func main() {
 
 			fmt.Printf("Switched to orphan branch: %s\n", targetBranch)
 			os.Exit(0)
-		case "sync":
+		case "reset":
 			cwd, _ := os.Getwd()
-			// Let SyncOrphanFromTrunk infer context
-			if err := grovesync.SyncOrphanFromTrunk(cwd, "", "", ""); err != nil {
-				fmt.Fprintf(os.Stderr, "Error syncing from trunk: %v\n", err)
+			// Let ResetOrphanToTrunk infer context
+			if err := grovesync.ResetOrphanToTrunk(cwd, "", "", ""); err != nil {
+				fmt.Fprintf(os.Stderr, "Error resetting to trunk: %v\n", err)
 				os.Exit(1)
 			}
-			fmt.Println("Successfully synced from trunk.")
+			fmt.Println("Successfully reset to trunk.")
 			os.Exit(0)
 		case "trunk":
 			cwd, _ := os.Getwd()

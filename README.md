@@ -9,7 +9,7 @@ By using GitGrove, developers can enjoy the "feel" of working in a small, isolat
 *   **Modular Monorepo**: Manage distinct projects (`services/a`, `lib/b`) as if they were separate repos.
 *   **The TUI**: A terminal user interface to manage the complex states easily.
 *   **Isolate & Focus**: Work on a single folder as if it were a standalone repository.
-*   **Sync from Trunk**: Easily pull the latest changes from the main monorepo branch into your isolated workspace.
+*   **Reset to Trunk**: Safely hard-reset your isolated workspace to match the latest trunk state (discarding local changes).
 *   **Context-Aware Commits**: Commits are automatically prefixed with the component name (e.g., `[service-a] feat: new API`).
 *   **Atomic Commit Enforcement**: Prevents "spaghetti history" by blocking commits that touch multiple registered repositories simultaneously.
 *   **Safe Integration**: Automates the complex process of merging isolated history back into the main monorepo trunk.
@@ -118,18 +118,19 @@ gg trunk
 **Using TUI:**
 Select **"Return to Trunk"**.
 
-### 5. Syncing with Trunk
-If updates have been made to your component in the main branch (e.g., by other team members), you can pull them into your isolated workspace:
+### 5. Resetting to Trunk
+If updates have been made to your component in the main branch (e.g., by other team members) and you want to start fresh:
 
 **Using CLI:**
 ```bash
-gg sync
+gg reset
 ```
 
 **Using TUI:**
-1.  Inside your orphan branch, select **"Sync from Trunk"**.
+1.  Inside your orphan branch, select **"Reset to Trunk"**.
+2.  Confirm the warning prompt.
 
-GitGrove will fetch the latest changes for your specific folder from the trunk and merge them into your workspace.
+GitGrove will **hard reset** your workspace to match the trunk's version of the component, discarding any local changes.
 
 ### 6. Merging Back (Integration)
 

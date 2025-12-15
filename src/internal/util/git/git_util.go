@@ -281,6 +281,17 @@ func Clean(repoPath string) error {
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("git clean -fdx failed: %s: %w", string(output), err)
 	}
-	// Maybe log success if needed, but silent is fine for success.
+	return nil
+}
+
+// ResetHard performs a hard reset to the specified commit/ref.
+// WARNING: This discards all focal changes.
+func ResetHard(repoPath string, commit string) error {
+	repoPath = filepath.Clean(repoPath)
+	cmd := exec.Command("git", "reset", "--hard", commit)
+	cmd.Dir = repoPath
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git reset --hard %s failed: %s: %w", commit, string(output), err)
+	}
 	return nil
 }

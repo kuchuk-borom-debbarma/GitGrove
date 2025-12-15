@@ -159,7 +159,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							} else {
 								m.repoInfo = fmt.Sprintf("Orphan Branch: %s", currentBranch)
 							}
-							m.choices = []string{"Prepare Merge", "Sync from Trunk", "Return to Trunk", "Quit"}
+							m.choices = []string{"Prepare Merge", "Reset to Trunk", "Return to Trunk", "Quit"}
 						} else {
 							m.isOrphan = false
 							m.repoInfo = getTrunkContextInfo(path, currentBranch)
@@ -357,19 +357,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.err = fmt.Errorf("prepare merge only available in orphan branches")
 					return m, nil
 
-				case "Sync from Trunk":
-					// Sync implementation:
-					// 1. Check if orphan
+				case "Reset to Trunk":
+					// Transition to Confirmation State
 					if !m.isOrphan {
-						m.err = fmt.Errorf("sync only available in orphan branches")
+						m.err = fmt.Errorf("reset only available in orphan branches")
 						return m, nil
 					}
-					// 2. Call SyncOrphanFromTrunk
-					if err := grovesync.SyncOrphanFromTrunk(m.path, "", m.trunkBranch, m.orphanRepoName); err != nil {
-						m.err = err
-					} else {
-						m.repoInfo = "Success: Synced from trunk"
-					}
+					m.state = StateConfirmReset
+					m.repoInfo = "WARNING: This will discard ALL local changes in this branch. Are you sure? (y/n)"
 					return m, nil
 
 				case "Return to Orphan Branch":
@@ -390,11 +385,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						// Similar to logic in NewModel... but we are updating m.
 						// Let's duplicate basic choice logic here or trigger a state refresh?
 						// For now manual update of choices:
-						m.choices = []string{"Sync from Trunk", "Prepare Merge", "Return to Trunk", "Quit"}
+						m.choices = []string{"Reset to Trunk", "Prepare Merge", "Return to Trunk", "Quit"}
 						m.descriptions["Return to Orphan Branch"] = "" // Clear old if needed? Map persists.
 						// Re-set default descriptions
 						m.descriptions = map[string]string{
-							"Sync from Trunk": "Merge latest changes from the trunk (for this component) into current branch.",
+							"Reset to Trunk":  "Hard reset current branch to match trunk (WARNING: deletes local changes).",
 							"Prepare Merge":   "Prepares work for integration into the Trunk.",
 							"Return to Trunk": "Switch back to main branch",
 							"Quit":            "Exit the GitGrove application.",
@@ -688,10 +683,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.trunkBranch = currentBranch
 						m.trunkBranch = currentBranch
 						m.repoInfo = fmt.Sprintf("Orphan Branch: %s (Trunk: %s)", repoName, currentBranch)
-						m.choices = []string{"Prepare Merge", "Sync from Trunk", "Return to Trunk", "Quit"}
+						m.choices = []string{"Prepare Merge", "Reset to Trunk", "Return to Trunk", "Quit"}
 						m.state = StateIdle
 					}
 				}
+			}
+		}
+
+	case StateConfirmReset:
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "y", "Y":
+				if err := grovesync.ResetOrphanToTrunk(m.path, "", m.trunkBranch, m.orphanRepoName); err != nil {
+					m.err = err
+					m.repoInfo = "Error: Reset failed"
+				} else {
+					m.repoInfo = "Success: Reset to trunk complete"
+				}
+				m.state = StateIdle
+				return m, nil
+			case "n", "N", "esc":
+				m.repoInfo = fmt.Sprintf("Orphan Branch: %s (Trunk: %s)", m.orphanRepoName, m.trunkBranch)
+				m.state = StateIdle
+				return m, nil
 			}
 		}
 	}

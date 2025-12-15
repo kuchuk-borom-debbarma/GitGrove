@@ -11,9 +11,10 @@ import (
 	groveUtil "github.com/kuchuk-borom-debbarma/GitGrove/src/internal/util/grove"
 )
 
-// SyncOrphanFromTrunk merges changes from the trunk (for the specific repo path) into the current orphan branch.
-// It uses the sticky trunk context or explicit trunk name to determine the source.
-func SyncOrphanFromTrunk(rootPath, currentBranch, trunkBranch, repoName string) error {
+// ResetOrphanToTrunk resets the current orphan branch to match the trunk's subtree state.
+// WARNING: This is a destructive operation that effectively deletes local changes in the orphan branch
+// and replaces them with the trunk's version.
+func ResetOrphanToTrunk(rootPath, currentBranch, trunkBranch, repoName string) error {
 	// 0. Resolve Current Branch (if missing)
 	if currentBranch == "" {
 		cb, err := gitUtil.CurrentBranch(rootPath)
@@ -120,9 +121,10 @@ func SyncOrphanFromTrunk(rootPath, currentBranch, trunkBranch, repoName string) 
 		gitUtil.DeleteBranch(rootPath, tempSyncBranch, true)
 	}()
 
-	// 4. Merge the temporary branch into current orphan branch
-	if err := gitUtil.Merge(rootPath, tempSyncBranch); err != nil {
-		return fmt.Errorf("merge failed: %w", err)
+	// 4. Hard Reset the orphan branch to the temp branch commit
+	// This replaces "Merge" to ensure exact match and no conflicts.
+	if err := gitUtil.ResetHard(rootPath, tempSyncBranch); err != nil {
+		return fmt.Errorf("reset to trunk failed: %w", err)
 	}
 
 	// 5. Clean untracked files again
